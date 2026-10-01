@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平衡の文字盤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 計器盤：上に平衡13進、下に平衡5進の文字盤を並べ、同じ数を同時に数える */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --zero:#8a948e; --glow:#f0c53a;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --zero:#6d7872; --glow:#f0c53a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --zero:#6d7872; --glow:#f0c53a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:860px;margin:0 auto;display:grid;gap:18px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:62ch}
+.readout{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;font-family:var(--mono)}
+.readout .big{font-size:clamp(2rem,7vw,3rem);font-weight:600;font-variant-numeric:tabular-nums}
+.readout .lab{font-family:var(--body);font-size:.8rem;color:var(--muted);letter-spacing:.08em}
+.row{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px 14px 10px;display:grid;gap:8px}
+.rowhead{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.rowhead b{font-family:var(--display);font-size:1.1rem}
+.rowhead span{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.dials{display:flex;flex-direction:row-reverse;justify-content:flex-end;flex-wrap:wrap-reverse;gap:6px}
+.dial{display:grid;justify-items:center;gap:2px}
+.dial canvas{width:112px;height:112px;max-width:100%}
+.dial small{font-family:var(--mono);color:var(--muted);font-size:.72rem}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+@media (max-width:480px){.dial canvas{width:84px;height:84px}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>平衡の文字盤</h1>
+    <p class="lead">同じ数を、平衡13進（桁 −6〜+6）と平衡5進（桁 −2〜+2）で同時に数えます。針は真上が 0、右回りが正、左回りが負です。端を越えると反対の端へ跳び、左隣へ ±1 を送ります。「符号を裏返す」を押すと、すべての針が鏡に映ったように左右へ返ります。繰り上がりは起きません。</p>
+  </header>
+
+  <div class="readout" aria-live="polite">
+    <span class="lab">観察者側の読み（10進）</span>
+    <span class="big" id="dec">0</span>
+  </div>
+
+  <section class="row" aria-label="平衡13進">
+    <div class="rowhead"><b>平衡13進</b><span id="s13">[0]</span></div>
+    <div class="dials" id="d13"></div>
+  </section>
+
+  <section class="row" aria-label="平衡5進">
+    <div class="rowhead"><b>平衡5進</b><span id="s5">[0]</span></div>
+    <div class="dials" id="d5"></div>
+  </section>
+
+  <div class="controls">
+    <button id="play" class="on">停止</button>
+    <button id="dn">−1</button>
+    <button id="up">+1</button>
+    <button id="flip">符号を裏返す</button>
+    <button id="jump">2026 へ</button>
+    <label for="spd">速さ <input id="spd" type="range" min="1" max="40" value="8"></label>
+  </div>
+  <div class="legend"><span><i style="background:var(--pos)"></i>正の桁</span><span><i style="background:var(--neg)"></i>負の桁</span><span><i style="background:var(--glow)"></i>いま繰り上がった桁</span></div>
+</div>
+
+<script>
+(() => {
+  // 数そのものは平衡13進の桁列で持つ。平衡5進の桁列も並行して持ち、どちらも足し算だけで動かす。
+  const SYS = [{N:13,h:6,len:4,el:'d13',sl:'s13'},{N:5,h:2,len:6,el:'d5',sl:'s5'}];
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  SYS.forEach(s => {
+    s.d = new Array(s.len).fill(0);          // 下の桁から
+    s.flash = new Array(s.len).fill(0);
+    s.shown = new Array(s.len).fill(0);      // 針の表示角（なめらかに追う）
+    const host = document.getElementById(s.el);
+    s.cv = [];
+    for (let i = 0; i < s.len; i++) {
+      const w = document.createElement('div'); w.className = 'dial';
+      const c = document.createElement('canvas'); c.width = 224; c.height = 224;
+      const t = document.createElement('small'); t.textContent = i === 0 ? '1 の桁' : s.N + '^' + i + ' の桁';
+      w.append(c, t); host.append(w); s.cv.push(c);
+    }
+  });
+
+  // ±1 を下の桁に足す。はみ出したら N を引いて（足して）左へ ±1。
+  function step(s, v) {
+    let i = 0, c = v;
+    while (c !== 0 && i < s.len) {
+      let x = s.d[i] + c; c = 0;
+      if (x > s.h) { x += -s.N; c = 1; } else if (x < -s.h) { x += s.N; c = -1; }
+      s.d[i] = x; s.flash[i] = 1; i++;
+    }
+  }
+  // 平衡5進6桁の端（±7812）に着いたら向きを返す。13進4桁（±14280）はその内側を覆う。
+  const LIM = 7812;
+  function tick(v) {
+    const nx = value(SYS[1]) + v;
+    if (nx > LIM || nx < -LIM) { dir = -dir; return; }
+    SYS.forEach(s => step(s, v));
+  }
+  const flip = () => SYS.forEach(s => { s.d = s.d.map(x => -x); s.flash = s.flash.map(() => 0.6); });
+  const value = s => s.d.reduceRight((a, x) => a * s.N + x, 0);   // 観察者側の読み
+
+  function drawDial(c, digit, shown, s, fl) {
+    const g = c.getContext('2d'), W = c.width, R = W * 0.4, cx = W / 2, cy = W / 2;
+    g.clearRect(0, 0, W, W);
+    const pos = css('--pos'), negc = css('--neg'), zero = css('--zero'), ink = css('--ink'), glow = css('--glow'), rule = css('--rule'), panel = css('--panel');
+    // 文字盤：N 個の目盛り。0 が真上、正は右回り。
+    g.beginPath(); g.arc(cx, cy, R + 14, 0, Math.PI * 2); g.fillStyle = panel; g.fill();
+    g.lineWidth = fl > 0 ? 6 * fl + 1.5 : 1.5; g.strokeStyle = fl > 0 ? glow : rule; g.stroke();
+    const ang = k => -Math.PI / 2 + (k / s.N) * Math.PI * 2;
+    for (let k = -s.h; k <= s.h; k++) {
+      const a = ang(k);
+      const col = k > 0 ? pos : k < 0 ? negc : zero;
+      g.fillStyle = col; g.font = `600 ${s.N > 5 ? 22 : 28}px "IBM Plex Mono",monospace`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.globalAlpha = k === digit ? 1 : 0.45;
+      g.fillText(k > 0 ? '+' + k : String(k), cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+      g.globalAlpha = 1;
+    }
+    // 境目（+h と −h のあいだ）に小さな切れ目
+    const ab = ang(s.h + 0.5);
+    g.strokeStyle = glow; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx + Math.cos(ab) * (R + 6), cy + Math.sin(ab) * (R + 6)); g.lineTo(cx + Math.cos(ab) * (R + 20), cy + Math.sin(ab) * (R + 20)); g.stroke();
+    // 針
+    const a = ang(shown);
+    const col = digit > 0 ? pos : digit < 0 ? negc : zero;
+    g.strokeStyle = col; g.lineWidth = 7; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * (R - 26), cy + Math.sin(a) * (R - 26)); g.stroke();
+    g.beginPath(); g.arc(cx, cy, 10, 0, Math.PI * 2); g.fillStyle = ink; g.fill();
+  }
+
+  function render() {
+    SYS.forEach(s => {
+      for (let i = 0; i < s.len; i++) {
+        // 針は最短の向きで追う（+h → −h の跳びは境目をまたぐ）
+        let target = s.d[i], cur = s.shown[i], diff = target - cur;
+        if (diff > s.N / 2) diff -= s.N; if (diff < -s.N / 2) diff += s.N;
+        cur += diff * 0.35; if (Math.abs(diff) < 0.01) cur = target;
+        if (cur > s.h + 0.5) cur -= s.N; if (cur < -s.h - 0.5) cur += s.N;
+        s.shown[i] = cur;
+        drawDial(s.cv[i], s.d[i], cur, s, s.flash[i]);
+        s.flash[i] = Math.max(0, s.flash[i] - 0.05);
+      }
+      document.getElementById(s.sl).textContent = '[' + s.d.slice().reverse().map(x => x > 0 ? '+' + x : String(x)).join(' ') + ']';
+    });
+    document.getElementById('dec').textContent = value(SYS[0]);
+  }
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, dir = 1, acc = 0, last = performance.now();
+  const playBtn = document.getElementById('play');
+  const setPlay = p => { playing = p; playBtn.textContent = p ? '停止' : '再生'; playBtn.classList.toggle('on', p); };
+  setPlay(playing);
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('up').onclick = () => { dir = 1; tick(1); };
+  document.getElementById('dn').onclick = () => { dir = -1; tick(-1); };
+  document.getElementById('flip').onclick = () => { flip(); dir = -dir; };
+  document.getElementById('jump').onclick = () => {
+    SYS.forEach(s => { s.d.fill(0); for (let k = 0; k < 2026; k++) step(s, 1); s.flash.fill(0.8); });
+    dir = 1; setPlay(false);
+  };
+  const spd = document.getElementById('spd');
+
+  function loop(t) {
+    const dt = t - last; last = t;
+    if (playing) {
+      acc += dt * spd.value / 1000;
+      while (acc >= 1) { acc -= 1; tick(dir); }
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+  render(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

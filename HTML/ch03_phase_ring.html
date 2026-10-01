@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3120番地の輪</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 左に 3120 番地の輪、右に歩幅のつまみと読み。歩幅を足すたびに弦を引き、0 に戻ったら止まる */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+.ringbox{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:10px;display:grid;place-items:center}
+canvas{width:100%;max-width:560px;aspect-ratio:1/1;height:auto}
+.side{display:grid;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;display:grid;gap:10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+.kv span{font-size:.8rem;color:var(--muted);letter-spacing:.06em}
+.kv b{font-family:var(--mono);font-weight:600;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.done{font-family:var(--body);font-weight:700;min-height:1.5em}
+.done em{font-style:normal;background:var(--glow);color:#1d2622;padding:2px 8px;border-radius:4px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 11px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:600;font-size:.9rem}
+.presets button small{display:block;font-family:var(--body);font-weight:400;font-size:.68rem;color:var(--muted)}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.on small{color:var(--bg)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{display:grid;gap:4px;color:var(--muted);font-size:.85rem}
+input[type=range]{width:100%}
+input[type=number]{font-family:var(--mono);font-size:1rem;width:7em;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>3120番地の輪</h1>
+    <p class="lead">一周を 3120 の番地に刻みます。0 から同じ歩幅を足し続け、通った番地を弦で結びます。3120 を越えたら 3120 を一つ引くだけです。0 に戻ったところで、何歩で一周したかを数えます。</p>
+  </header>
+
+  <div class="main">
+    <div class="ringbox"><canvas id="cv" width="1120" height="1120" aria-label="3120番地の輪"></canvas></div>
+    <div class="side">
+      <div class="card">
+        <div class="kv">
+          <span>歩幅</span><b id="step">(624)₃₁₂₀</b>
+          <span>いまの番地</span><b id="pos">(0)₃₁₂₀</b>
+          <span>歩数</span><b id="cnt">0</b>
+          <span>観察者側の読み</span><b id="deg">0°</b>
+        </div>
+        <div class="done" id="done">&nbsp;</div>
+      </div>
+      <div class="card">
+        <div class="presets" id="presets"></div>
+        <label for="num">歩幅を入れる（1〜3119）
+          <input id="num" type="number" min="1" max="3119" value="624">
+        </label>
+        <label for="spd">速さ<input id="spd" type="range" min="1" max="60" value="10"></label>
+        <div class="controls">
+          <button id="play" class="on">停止</button>
+          <button id="one">一歩</button>
+          <button id="again">最初から</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const BASE = 3120;
+  const PRESETS = [[624,'五角形'],[780,'四角形'],[1040,'三角形'],[240,'13 等分'],[260,'12 等分'],[52,'60 等分'],[1000,'78 歩'],[1201,'全番地']];
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const sub = s => String(s).replace(/\d/g, c => '₀₁₂₃₄₅₆₇₈₉'[c]);
+  const deg = p => { const t = p * 3, q = Math.floor(t / 26), r = t - q * 26; return r ? `${q}+${r}/26°` : `${q}°`; };
+  let step = 624, pos = 0, count = 0, path = [0], closed = false;
+
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = cv.width, C = W / 2, R = W * 0.37;
+  const xy = p => { const a = -Math.PI / 2 + p / BASE * Math.PI * 2; return [C + Math.cos(a) * R, C + Math.sin(a) * R]; };
+
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos_c = css('--pos'), glow = css('--glow'), neg = css('--neg');
+    g.clearRect(0, 0, W, W);
+    // 目盛り：60 番地ごとに小さく、780 ごとに長く
+    g.strokeStyle = rule; g.lineWidth = 2; g.beginPath(); g.arc(C, C, R, 0, Math.PI * 2); g.stroke();
+    for (let p = 0; p < BASE; p += 52) {
+      const a = -Math.PI / 2 + p / BASE * Math.PI * 2, L = p % 780 === 0 ? 34 : p % 260 === 0 ? 22 : 10;
+      g.strokeStyle = p % 780 === 0 ? muted : rule; g.lineWidth = p % 780 === 0 ? 3 : 2;
+      g.beginPath(); g.moveTo(C + Math.cos(a) * R, C + Math.sin(a) * R); g.lineTo(C + Math.cos(a) * (R + L), C + Math.sin(a) * (R + L)); g.stroke();
+    }
+    g.fillStyle = muted; g.font = '600 30px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    [[0,'0'],[780,'780'],[1560,'1560'],[2340,'2340']].forEach(([p,t]) => { const a = -Math.PI/2 + p/BASE*Math.PI*2; g.fillText(t, C + Math.cos(a)*(R+66), C + Math.sin(a)*(R+66)); });
+    // 弦
+    g.strokeStyle = pos_c; g.lineWidth = path.length > 400 ? 1.2 : 3; g.globalAlpha = path.length > 400 ? 0.55 : 0.9;
+    g.beginPath(); path.forEach((p, i) => { const [x, y] = xy(p); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.globalAlpha = 1;
+    // 通った番地の点
+    if (path.length <= 400) path.forEach(p => { const [x, y] = xy(p); g.fillStyle = pos_c; g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); });
+    // 0 番地といまの番地
+    const [x0, y0] = xy(0); g.fillStyle = neg; g.beginPath(); g.arc(x0, y0, 11, 0, Math.PI * 2); g.fill();
+    const [x, y] = xy(pos); g.strokeStyle = glow; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.stroke();
+    // 中心に歩数
+    g.fillStyle = ink; g.font = '600 96px "IBM Plex Mono",monospace'; g.fillText(String(count), C, C - 14);
+    g.fillStyle = muted; g.font = '400 30px "BIZ UDPGothic",sans-serif'; g.fillText('歩', C, C + 56);
+
+    document.getElementById('step').textContent = `(${step})${sub(BASE)}`;
+    document.getElementById('pos').textContent = `(${pos})${sub(BASE)}`;
+    document.getElementById('cnt').textContent = count;
+    document.getElementById('deg').textContent = deg(pos);
+    document.getElementById('done').innerHTML = closed ? `<em>${count} 歩で 0 に着地</em>` : '&nbsp;';
+  }
+
+  function stepOnce() {
+    if (closed) return;
+    let s = pos + step; if (s >= BASE) s += -BASE;     // 足して、越えたら一つ引く
+    pos = s; count++; path.push(pos);
+    if (pos === 0) closed = true;
+  }
+  function restart() { pos = 0; count = 0; path = [0]; closed = false; }
+  function setStep(s) { step = s; document.getElementById('num').value = s; restart();
+    document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('on', +b.dataset.s === s)); }
+
+  const pre = document.getElementById('presets');
+  PRESETS.forEach(([s, t]) => { const b = document.createElement('button'); b.dataset.s = s; b.innerHTML = `${s}<small>${t}</small>`; b.onclick = () => { setStep(s); setPlay(true); }; pre.append(b); });
+  document.getElementById('num').addEventListener('change', e => { let v = Math.round(+e.target.value); if (!(v >= 1 && v <= 3119)) v = 624; setStep(v); setPlay(true); });
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, acc = 0, last = performance.now(), hold = 0;
+  const playBtn = document.getElementById('play');
+  const setPlay = p => { playing = p; playBtn.textContent = p ? '停止' : '再生'; playBtn.classList.toggle('on', p); };
+  setPlay(playing);
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('one').onclick = () => { setPlay(false); if (closed) restart(); stepOnce(); };
+  document.getElementById('again').onclick = () => restart();
+  const spd = document.getElementById('spd');
+
+  // 開いたとき：五角形を描き終えた状態
+  setStep(624); for (let i = 0; i < 5; i++) stepOnce();
+  hold = 1.5;
+  function loop(t) {
+    const dt = (t - last) / 1000; last = t;
+    if (playing) {
+      if (closed) { hold -= dt; if (hold <= 0) { restart(); hold = 1.5; } }
+      else { const rate = spd.value * (step === 1201 || path.length > 200 ? 8 : 1); acc += dt * rate; while (acc >= 1 && !closed) { acc -= 1; stepOnce(); } if (closed) hold = 1.5; }
+    }
+    draw(); requestAnimationFrame(loop);
+  }
+  draw(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

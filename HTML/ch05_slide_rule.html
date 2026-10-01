@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>13の計算尺</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 二重の輪の計算尺：外輪は固定、内輪を回す。目盛りは「1 を何回倍にしたか」、数は 13 で割った余り */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:16px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;max-width:560px;aspect-ratio:1/1;height:auto;justify-self:center}
+.eq{font-family:var(--mono);font-size:1.3rem;font-weight:600}
+.eq small{display:block;font-family:var(--body);font-size:.85rem;font-weight:400;color:var(--muted);margin-top:4px}
+.pick{display:grid;gap:6px}
+.pick span{font-size:.85rem;color:var(--muted)}
+.nums{display:flex;flex-wrap:wrap;gap:5px}
+.nums button{font-family:var(--mono);font-weight:600;width:42px;padding:6px 0}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.legend{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>13の計算尺</h1>
+    <p class="lead">1 から倍にしていき、13 を越えたら 13 を引きます。12 回で 1 に戻るので、12 の目盛りに 12 個の数が一つずつ並びます。内輪の 1 を外輪の a に合わせると、内輪の b のすぐ外側に a × b（13 で割った余り）が来ます。内輪を a の目盛りだけ回して b の目盛りを足すので、掛け算が目盛りの足し算になります。</p>
+  </header>
+  <div class="main">
+    <div class="box"><canvas id="cv" width="1100" height="1100" aria-label="13の計算尺"></canvas></div>
+    <div class="box">
+      <div class="eq" id="eq"></div>
+      <div class="pick"><span>a（内輪の 1 を合わせる数）</span><div class="nums" id="na"></div></div>
+      <div class="pick"><span>b（内輪で探す数）</span><div class="nums" id="nb"></div></div>
+      <div><button id="auto" class="on">自動で回す</button></div>
+      <div class="legend">
+        <span><i style="background:var(--pos)"></i>目盛り 0, 3, 6, 9：1, 8, 12, 5</span>
+        <span><i style="background:var(--neg)"></i>目盛り 1, 4, 7, 10：2, 3, 11, 10</span>
+        <span><i style="background:var(--grn)"></i>目盛り 2, 5, 8, 11：4, 6, 9, 7</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const P = 13, M = 12;
+  const SCALE = []; { let x = 1; for (let k = 0; k < M; k++) { SCALE.push(x); let s = x + x; if (s >= P) s += -P; x = s; } }
+  const WHERE = {}; SCALE.forEach((v, k) => WHERE[v] = k);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const trackCol = k => [css('--pos'), css('--neg'), css('--grn')][k % 3];
+  let a = 3, b = 5, rot = 0, auto = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = cv.width, C = W / 2, RO = W * 0.40, RI = W * 0.27;
+  const ang = k => -Math.PI / 2 + k / M * Math.PI * 2;
+
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), glow = css('--glow'), cell = css('--cell'), panel = css('--panel');
+    g.clearRect(0, 0, W, W);
+    g.beginPath(); g.arc(C, C, RO + 60, 0, 7); g.fillStyle = cell; g.fill(); g.strokeStyle = rule; g.lineWidth = 3; g.stroke();
+    g.beginPath(); g.arc(C, C, (RO + RI) / 2, 0, 7); g.strokeStyle = rule; g.lineWidth = 2; g.stroke();
+    g.beginPath(); g.arc(C, C, RI - 60, 0, 7); g.strokeStyle = rule; g.stroke();
+    // 外輪：目盛り k に数 SCALE[k]。内輪は rot だけ回してある
+    const settled = Math.abs(rot - WHERE[a]) < 0.02;
+    let res = WHERE[a] + WHERE[b]; if (res >= M) res += -M;
+    for (let k = 0; k < M; k++) { const t = ang(k), x = C + Math.cos(t) * RO, y = C + Math.sin(t) * RO;
+      if (settled && k === res) { g.beginPath(); g.arc(x, y, 46, 0, 7); g.fillStyle = glow; g.fill(); }
+      g.fillStyle = trackCol(k); g.font = '600 52px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(SCALE[k], x, y);
+      g.fillStyle = muted; g.font = '500 24px "IBM Plex Mono",monospace'; g.fillText(k, C + Math.cos(t) * (RO + 78), C + Math.sin(t) * (RO + 78)); }
+    for (let k = 0; k < M; k++) { const t = ang(k + rot), x = C + Math.cos(t) * RI, y = C + Math.sin(t) * RI;
+      if (k === WHERE[b] || k === 0) { g.beginPath(); g.arc(x, y, 40, 0, 7); g.strokeStyle = k === 0 ? ink : glow; g.lineWidth = 6; g.stroke(); }
+      g.fillStyle = trackCol(k); g.font = '600 44px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(SCALE[k], x, y); }
+    if (settled) { const t = ang(res); g.strokeStyle = glow; g.lineWidth = 6; g.beginPath(); g.moveTo(C + Math.cos(t) * (RI + 44), C + Math.sin(t) * (RI + 44)); g.lineTo(C + Math.cos(t) * (RO - 48), C + Math.sin(t) * (RO - 48)); g.stroke(); }
+    // 内輪の 1（目盛り 0）の印
+    const t0 = ang(rot); g.strokeStyle = ink; g.lineWidth = 4; g.beginPath(); g.moveTo(C + Math.cos(t0) * (RI - 52), C + Math.sin(t0) * (RI - 52)); g.lineTo(C + Math.cos(t0) * (RI - 30), C + Math.sin(t0) * (RI - 30)); g.stroke();
+    // 中心
+    g.fillStyle = muted; g.font = '400 30px "BIZ UDPGothic",sans-serif'; g.fillText('内輪を', C, C - 40); g.fillStyle = ink; g.font = '600 64px "IBM Plex Mono",monospace'; g.fillText(rot.toFixed(0), C, C + 14);
+    g.fillStyle = muted; g.font = '400 30px "BIZ UDPGothic",sans-serif'; g.fillText('目盛り回した', C, C + 66);
+  }
+  function eq() { let k = WHERE[a] + WHERE[b]; if (k >= M) k += -M;
+    document.getElementById('eq').innerHTML = `${a} × ${b} → ${SCALE[k]}<small>目盛り ${WHERE[a]} ＋ ${WHERE[b]} → ${k}（12 を越えたら 12 を引く）</small>`; }
+  function buttons() {
+    const mk = (id, cur, set) => { const host = document.getElementById(id); host.innerHTML = '';
+      for (let v = 1; v < P; v++) { const e = document.createElement('button'); e.textContent = v; e.className = v === cur ? 'on' : ''; e.onclick = () => { set(v); buttons(); eq(); }; host.append(e); } };
+    mk('na', a, v => { a = v; }); mk('nb', b, v => { b = v; });
+  }
+  const autoBtn = document.getElementById('auto');
+  const setAuto = v => { auto = v; autoBtn.classList.toggle('on', v); autoBtn.textContent = v ? '自動で回す' : '自動で回す（止まっている）'; };
+  autoBtn.onclick = () => setAuto(!auto);
+  document.getElementById('na').addEventListener('click', () => setAuto(false));
+  document.getElementById('nb').addEventListener('click', () => setAuto(false));
+  setAuto(auto);
+  buttons(); eq(); rot = WHERE[a];
+  const PAIRS = [[3,5],[7,8],[12,12],[6,11],[2,10],[9,4]]; let pi = 0, hold = 0, last = performance.now();
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    const goal = WHERE[a]; let d = goal - rot; if (d > M / 2) d -= M; if (d < -M / 2) d += M;
+    if (Math.abs(d) > 0.01) { rot += Math.sign(d) * Math.min(Math.abs(d), dt * 3); if (rot < 0) rot += M; if (rot >= M) rot -= M; } else rot = goal;
+    if (auto && rot === goal) { hold += dt; if (hold > 2.2) { hold = 0; pi = (pi + 1) % PAIRS.length; [a, b] = PAIRS[pi]; buttons(); eq(); } }
+    draw(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

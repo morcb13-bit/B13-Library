@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>互除法の長方形</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 左に長方形、右に引き算の記録。長い辺から短い辺を引くたびに、正方形を一枚切り取る */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:16px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.res{font-family:var(--mono);font-size:1.2rem;font-weight:600;min-height:1.6em}
+.res em{font-style:normal;font-family:var(--body);background:var(--glow);color:#1d2622;padding:2px 8px;border-radius:4px}
+.log{font-family:var(--mono);font-size:.88rem;line-height:1.7;max-height:300px;overflow:auto;color:var(--muted)}
+.log div.now{color:var(--ink);font-weight:600}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 11px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500;font-size:.85rem}
+.presets button small{display:block;font-family:var(--body);font-size:.68rem;color:var(--muted)}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.on small{color:var(--bg)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+label{display:grid;gap:4px;color:var(--muted);font-size:.85rem}
+input[type=number]{font-family:var(--mono);font-size:1rem;width:6.5em;padding:5px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>互除法の長方形</h1>
+    <p class="lead">横 a、縦 b の長方形から、短い辺を一辺とする正方形を切り取ります。長い辺から短い辺を一回引くたびに、正方形が一枚取れます。最後に長方形が正方形一枚になったら、その一辺が a と b の最大公約数です。</p>
+  </header>
+  <div class="main">
+    <div class="box"><canvas id="cv" width="1200" height="760" aria-label="互除法の長方形"></canvas></div>
+    <div class="box">
+      <div class="res" id="res">&nbsp;</div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+  <div class="presets" id="presets"></div>
+  <div class="controls">
+    <label for="ia">a<input id="ia" type="number" min="1" max="100000" value="89"></label>
+    <label for="ib">b<input id="ib" type="number" min="1" max="100000" value="55"></label>
+    <button id="go">切り取る</button>
+    <button id="play" class="on">停止</button>
+    <button id="one">一枚</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const PRE = [[89,55,'フィボナッチ'],[233,144,'フィボナッチ'],[3120,2026,'最大公約数 2'],[3120,240,'13 枚'],[36,24,'最大公約数 12'],[2026,13,'細長い']];
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  let A = 89, B = 55, cuts = [], shown = 0;
+
+  // 正方形を一枚ずつ：残りの長方形 (x, y, w, h) から、短い辺の正方形を切り取る（引き算だけ）
+  function plan(a, b) {
+    const out = []; let x = 0, y = 0, w = a, h = b;
+    while (w > 0 && h > 0) {
+      if (w === h) { out.push({x, y, s: h, w, h, op: `残りは ${h} × ${h} の正方形`}); break; }
+      if (w > h) { out.push({x, y, s: h, w, h, op: `${w} − ${h} = ${w - h}`}); x += h; w += -h; }
+      else { out.push({x, y, s: w, w, h, op: `${h} − ${w} = ${h - w}`}); y += w; h += -w; }
+      if (out.length > 4000) break;
+    }
+    return out;
+  }
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), cell = css('--cell'), glow = css('--glow');
+    const cols = [css('--pos'), css('--neg'), css('--grn')];
+    g.clearRect(0, 0, cv.width, cv.height);
+    const pad = 30, sc = Math.min((cv.width - 2 * pad) / A, (cv.height - 2 * pad) / B), ox = (cv.width - A * sc) / 2, oy = (cv.height - B * sc) / 2;
+    g.fillStyle = cell; g.fillRect(ox, oy, A * sc, B * sc); g.strokeStyle = rule; g.lineWidth = 2; g.strokeRect(ox, oy, A * sc, B * sc);
+    // 同じ大きさの正方形には同じ色（大きさが変わるたびに色を回す）
+    let ci = -1, prev = -1;
+    for (let i = 0; i < shown; i++) { const c = cuts[i]; if (c.s !== prev) { ci++; prev = c.s; }
+      const last = i === shown - 1;
+      g.fillStyle = cols[ci % 3]; g.globalAlpha = last ? 0.9 : 0.55; g.fillRect(ox + c.x * sc, oy + c.y * sc, c.s * sc, c.s * sc); g.globalAlpha = 1;
+      g.strokeStyle = last ? glow : css('--bg'); g.lineWidth = last ? 6 : 1.5; g.strokeRect(ox + c.x * sc, oy + c.y * sc, c.s * sc, c.s * sc);
+      if (c.s * sc > 46) { g.fillStyle = css('--bg'); g.font = `600 ${Math.min(64, c.s * sc / 3)}px "IBM Plex Mono",monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(c.s, ox + (c.x + c.s / 2) * sc, oy + (c.y + c.s / 2) * sc); } }
+    g.fillStyle = muted; g.font = '500 24px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillText(`a = ${A}`, cv.width / 2, oy - 6 < 20 ? 22 : oy - 6);
+    const done = shown === cuts.length;
+    const subs = Math.min(shown, cuts.length - 1);
+    document.getElementById('res').innerHTML = done ? `<em>最大公約数 ${cuts[cuts.length - 1].s}</em>　${subs} 回引いた（正方形 ${cuts.length} 枚）` : `${subs} 回引いた`;
+    const log = document.getElementById('log');
+    log.innerHTML = cuts.slice(0, shown).map((c, i) => `<div class="${i === shown - 1 ? 'now' : ''}">${String(i + 1).padStart(3, ' ')}　${c.op}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+  }
+  function setAB(a, b) { A = a; B = b; document.getElementById('ia').value = a; document.getElementById('ib').value = b; cuts = plan(a, b); shown = 0;
+    document.querySelectorAll('#presets button').forEach(e => e.classList.toggle('on', +e.dataset.a === a && +e.dataset.b === b)); draw(); }
+  const pre = document.getElementById('presets');
+  PRE.forEach(([a, b, t]) => { const e = document.createElement('button'); e.dataset.a = a; e.dataset.b = b; e.innerHTML = `${a} × ${b}<small>${t}</small>`; e.onclick = () => { setAB(a, b); setPlay(true); }; pre.append(e); });
+  document.getElementById('go').onclick = () => { let a = Math.round(+document.getElementById('ia').value), b = Math.round(+document.getElementById('ib').value);
+    if (!(a >= 1 && a <= 100000)) a = 89; if (!(b >= 1 && b <= 100000)) b = 55; setAB(a, b); setPlay(true); };
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, acc = 0, last = performance.now(), hold = 0;
+  const playBtn = document.getElementById('play');
+  const setPlay = p => { playing = p; playBtn.textContent = p ? '停止' : '再生'; playBtn.classList.toggle('on', p); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('one').onclick = () => { setPlay(false); if (shown < cuts.length) shown++; else shown = 0; draw(); };
+  setAB(89, 55); shown = cuts.length; draw(); setPlay(playing); hold = 0;
+  let pi = 0;
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (playing) { if (shown >= cuts.length) { hold += dt; if (hold > 2.5) { hold = 0; shown = 0; draw(); } }
+      else { const rate = cuts.length > 60 ? 20 : cuts.length > 20 ? 8 : 2.5; acc += dt * rate; let ch = false; while (acc >= 1 && shown < cuts.length) { acc -= 1; shown++; ch = true; } if (ch) draw(); } }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,192 @@
+<title>整数殻の二次曲面</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 左に格子点の立体、右に式と形の名前。狭い画面では縦に積む */
+:root{
+  --bg:#eceff4; --panel:#f8f9fb; --ink:#1b2333; --muted:#5d6779; --line:#cfd5df; --accent:#3b5bdb;
+  --f-disp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.7;margin:0;padding-inline:16px;padding-block:24px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(1.6rem,4vw,2.4rem);line-height:1.25;margin:0;text-wrap:balance}
+.sub{font-family:var(--f-mono);color:var(--muted)}
+.lead{max-width:62ch;margin:0}
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;aspect-ratio:1/1;display:block;touch-action:none;cursor:grab}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font-family:var(--f-body);font-size:.9rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=range]{width:160px;accent-color:var(--accent)}
+.side{display:grid;gap:18px;min-width:0}
+.box{display:grid;gap:6px}
+.box h2{font-family:var(--f-disp);font-weight:600;font-size:1.05rem;margin:0}
+.box p{margin:0;font-size:.88rem;color:var(--muted)}
+.eq{font-family:var(--f-mono);font-size:1.15rem;font-variant-numeric:tabular-nums;line-height:1.6}
+.shape{font-family:var(--f-disp);font-weight:800;font-size:1.6rem}
+.path{display:flex;flex-wrap:wrap;gap:6px}
+.path span{font-size:.8rem;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
+.path span.on{color:var(--bg);background:var(--ink);border-color:var(--ink)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.9rem}
+.note{font-size:.8rem;color:var(--muted);max-width:70ch;margin:0;border-top:1px solid var(--line);padding-top:12px}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <h1>整数殻の二次曲面</h1>
+    <div class="sub">4x² + 4y² + p·z² = K　── 二つの整数 p, K を一つずつ動かす</div>
+  </header>
+  <p class="lead">−10〜10 の整数の格子点のうち、左辺が K に近いものだけを光らせる。K を負から正へ送ると二葉双曲面が円錐を通って一葉双曲面になり、続けて p を負から正へ送ると円柱を通って球、楕円体になる。色は z の段ごとに変えている。</p>
+
+  <div class="main">
+    <section class="stage">
+      <canvas id="cv" aria-label="格子点でできた二次曲面"></canvas>
+      <div class="ctrl">
+        <button id="play" type="button">一時停止</button>
+        <button id="back" type="button">一段戻す</button>
+        <button id="fwd" type="button">一段進める</button>
+      </div>
+      <div class="ctrl">
+        <label for="stage">段 <input id="stage" type="range" min="0" max="56" step="1" value="0"><span id="stageV" class="num">0</span></label>
+        <label for="band">殻の厚み <input id="band" type="range" min="0" max="8" step="1" value="3"><span id="bandV" class="num">3</span></label>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="box">
+        <h2>いまの式</h2>
+        <div class="eq" id="eq"></div>
+        <div class="shape" id="shape"></div>
+      </div>
+      <div class="box">
+        <h2>通り道</h2>
+        <div class="path" id="path"></div>
+      </div>
+      <div class="box">
+        <h2>数える</h2>
+        <div class="num" id="count"></div>
+        <p>左辺がちょうど K になる点は大きく、殻の厚みの内側の点は小さく描く。判定は整数の掛け算（足し算の繰り返し）と大小比較だけ。</p>
+      </div>
+    </aside>
+  </div>
+  <p class="note">各段の細い輪は、その z の高さで 4x² + 4y² = K − p·z² になる円を画面の目安として描いたもの。点の選び方そのものは整数だけで決まる。</p>
+</div>
+
+<script>
+(function(){
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const n=10;
+  // 段 → (p, K)
+  const stages=[];
+  for(let K=-160;K<=160;K+=8)stages.push([-4,K]);
+  for(let p=-3;p<=12;p++)stages.push([p,160]);
+  const names=['二葉双曲面','円錐','一葉双曲面','円柱','球','楕円体'];
+  function shapeOf(p,K){
+    if(p<0)return K<0?0:(K===0?1:2);
+    if(p===0)return 3;
+    return p===4?4:5;
+  }
+  const pathEl=document.getElementById('path');
+  names.forEach((s,i)=>{const e=document.createElement('span');e.textContent=s;e.id='ps'+i;pathEl.appendChild(e);});
+
+  let st=0,dir=1,band=3,playing=!reduce,last=0,yaw=0.7,pitch=0.35,drag=null;
+  const stIn=document.getElementById('stage');stIn.max=stages.length-1;
+  const stV=document.getElementById('stageV'),bandIn=document.getElementById('band'),bandV=document.getElementById('bandV');
+  function setStage(v){st=Math.max(0,Math.min(stages.length-1,v));stIn.value=st;stV.textContent=st;info();}
+  stIn.addEventListener('input',()=>setStage(+stIn.value));
+  bandIn.addEventListener('input',()=>{band=+bandIn.value;bandV.textContent=band;info();});
+  document.getElementById('fwd').addEventListener('click',()=>setStage(st+1));
+  document.getElementById('back').addEventListener('click',()=>setStage(st-1));
+  const playBtn=document.getElementById('play');
+  playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?'一時停止':'再生';});
+  playBtn.textContent=playing?'一時停止':'再生';
+
+  cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY,yaw,pitch];cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;yaw=drag[2]+(e.clientX-drag[0])*0.01;pitch=Math.max(-1.4,Math.min(1.4,drag[3]+(e.clientY-drag[1])*0.01));});
+  cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('pointercancel',()=>drag=null);
+
+  function sq(v){let s=0;for(let i=0;i<Math.abs(v);i++)s+=Math.abs(v);return s;}   // 足し算で二乗
+  const SQ=[];for(let v=-n;v<=n;v++)SQ[v+n]=sq(v);
+
+  function info(){
+    const [p,K]=stages[st];
+    document.getElementById('eq').textContent='4x² + 4y² '+(p<0?'− '+(-p):'+ '+p)+'·z² = '+K;
+    const s=shapeOf(p,K);
+    document.getElementById('shape').textContent=names[s];
+    names.forEach((_,i)=>document.getElementById('ps'+i).classList.toggle('on',i===s));
+    let exact=0,shell=0;const w=band+band+band+band;
+    for(let x=-n;x<=n;x++)for(let y=-n;y<=n;y++)for(let z=-n;z<=n;z++){
+      const zz=SQ[z+n];let pz=0;for(let i=0;i<Math.abs(p);i++)pz+=zz;if(p<0)pz=-pz;
+      const q=4*SQ[x+n]+4*SQ[y+n]+pz;            // 4倍は4回足すのと同じ
+      if(q===K)exact++;else if(Math.abs(q-K)<=w)shell++;
+    }
+    document.getElementById('count').innerHTML='ちょうど K の点　'+exact+'<br>殻の内側の点　'+shell+'<br>調べた格子点　21×21×21 = 9261';
+  }
+
+  function resize(){const d=window.devicePixelRatio||1,w=cv.clientWidth;cv.width=Math.round(w*d);cv.height=Math.round(w*d);}
+  window.addEventListener('resize',resize);resize();
+
+  function hue(z){return Math.round((z+n)*300/(2*n));}
+  function frame(now){
+    if(playing){
+      if(now-last>(st===0||st===stages.length-1?1400:260)){
+        if(st+dir<0||st+dir>stages.length-1)dir=-dir;
+        setStage(st+dir);last=now;
+      }
+      if(!drag)yaw+=0.003;
+    }
+    const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    const dark=getComputedStyle(document.documentElement).colorScheme==='dark';
+    const L=dark?62:48;
+    const [p,K]=stages[st];const w=band*4;
+    const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const S=W/(2*n)*0.62,D=34;
+    function proj(x,y,z){ // z を上向きに
+      const X=cy*x+sy*y, Y0=-sy*x+cy*y;
+      const Yv=cp*z - sp*Y0, Zd=sp*z + cp*Y0;
+      const f=D/(D+Zd);return [W/2+X*S*f,H/2-Yv*S*f,Zd,f];
+    }
+    // 目安の輪
+    ctx.lineWidth=1*(window.devicePixelRatio||1);
+    for(let z=-n;z<=n;z++){
+      const zz=z*z, r2=(K-p*zz)/4;
+      if(r2<=0||r2>2*n*n)continue;
+      const r=Math.sqrt(r2);
+      ctx.strokeStyle='hsla('+hue(z)+',80%,'+L+'%,0.35)';
+      ctx.beginPath();
+      for(let i=0;i<=64;i++){const a=i/64*2*Math.PI;const q=proj(r*Math.cos(a),r*Math.sin(a),z);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}
+      ctx.stroke();
+    }
+    // 格子点
+    const pts=[];
+    for(let x=-n;x<=n;x++)for(let y=-n;y<=n;y++)for(let z=-n;z<=n;z++){
+      const q=4*SQ[x+n]+4*SQ[y+n]+p*SQ[z+n];
+      const d=Math.abs(q-K);
+      if(d>w)continue;
+      const pr=proj(x,y,z);pts.push([pr[2],pr[0],pr[1],pr[3],z,d===0]);
+    }
+    pts.sort((a,b)=>b[0]-a[0]);
+    const dpr=window.devicePixelRatio||1;
+    for(const t of pts){
+      const r=(t[5]?3.6:2.0)*t[3]*dpr*(W/(700*dpr)+0.4);
+      ctx.fillStyle='hsl('+hue(t[4])+',85%,'+(t[5]?L:L+8)+'%)';
+      ctx.globalAlpha=t[5]?1:0.7;
+      ctx.beginPath();ctx.arc(t[1],t[2],r,0,6.2832);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    requestAnimationFrame(frame);
+  }
+  setStage(0);
+  requestAnimationFrame(frame);
+})();
+</script>

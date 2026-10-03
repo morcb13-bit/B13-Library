@@ -1,0 +1,259 @@
+<title>整数番地のカラビ・ヤウ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 左に回る立体、右に番地の5×5表と五角形の頂点。狭い画面では縦に積む */
+:root{
+  --bg:#eceff4; --panel:#f8f9fb; --ink:#1b2333; --muted:#5d6779; --line:#cfd5df; --accent:#3b5bdb;
+  --k0:#d9480f; --k1:#e8a400; --k2:#2b8a3e; --k3:#1971c2; --k4:#9c36b5;
+  --f-disp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131d; --panel:#151c29; --ink:#e3e8f1; --muted:#97a1b3; --line:#2a3446; --accent:#8ea6ff;
+  --k0:#ff7a45; --k1:#ffc53d; --k2:#5fcf7a; --k3:#5aa9ff; --k4:#d58cf0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131d; --panel:#151c29; --ink:#e3e8f1; --muted:#97a1b3; --line:#2a3446; --accent:#8ea6ff;
+  --k0:#ff7a45; --k1:#ffc53d; --k2:#5fcf7a; --k3:#5aa9ff; --k4:#d58cf0; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.7;margin:0;padding-inline:16px;padding-block:24px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(1.6rem,4vw,2.4rem);line-height:1.25;margin:0;text-wrap:balance}
+.eq{font-family:var(--f-mono);font-size:1rem;color:var(--muted)}
+.lead{max-width:62ch;margin:0;color:var(--ink)}
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;aspect-ratio:1/1;display:block;touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font-family:var(--f-body);font-size:.9rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:center}
+input[type=range]{width:140px;accent-color:var(--accent)}
+.side{display:grid;gap:20px;min-width:0}
+.box{display:grid;gap:8px}
+.box h2{font-family:var(--f-disp);font-weight:600;font-size:1.05rem;margin:0}
+.box p{margin:0;font-size:.88rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:auto repeat(5,1fr);gap:4px;font-family:var(--f-mono);font-size:.78rem;font-variant-numeric:tabular-nums}
+.grid .hd{color:var(--muted);text-align:center;align-self:center}
+.cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:3px;display:grid;place-items:center;color:var(--muted);cursor:pointer;background:transparent;padding:0;font-family:var(--f-mono);font-size:.72rem}
+.cell.on{color:#fff;border-color:transparent}
+.cell.focus{outline:2px solid var(--ink);outline-offset:1px}
+.counter{font-family:var(--f-mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+.count-line{font-family:var(--f-mono);font-size:.88rem;line-height:1.9;font-variant-numeric:tabular-nums}
+.count-line b{color:var(--accent);font-weight:600}
+svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.note{font-size:.8rem;color:var(--muted);max-width:70ch;margin:0;border-top:1px solid var(--line);padding-top:12px}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <h1>整数番地のカラビ・ヤウ</h1>
+    <div class="eq">z₁⁵ + z₂⁵ = 1　── 25枚の切れ端を、番地 (k₁, k₂) の順に貼る</div>
+  </header>
+  <p class="lead">切れ端は 5×5 = 25 枚。どの切れ端かは 0〜4 の整数 2 つで決まり、置く向きは五角形の頂点 k₁, k₂ のどれか一つ。25枚を順に足していくと、よく知られたカラビ・ヤウの断面の絵になる。</p>
+
+  <div class="main">
+    <section class="stage">
+      <canvas id="cv" aria-label="25枚の切れ端が順に貼り合わさる立体"></canvas>
+      <div class="ctrl">
+        <button id="play" type="button">一時停止</button>
+        <button id="step" type="button">一枚足す</button>
+        <button id="reset" type="button">最初から</button>
+        <button id="all" type="button">25枚すべて</button>
+        <label for="alpha">混ぜる角 α <input id="alpha" type="range" min="0" max="20" step="1" value="5"><span id="alphaV" class="counter">5/20</span></label>
+      </div>
+      <div class="counter" id="status">貼った枚数 0 / 25</div>
+    </section>
+
+    <aside class="side">
+      <div class="box">
+        <h2>番地の表</h2>
+        <p>行が k₁、列が k₂。押すとその切れ端だけを強調する。もう一度押すと戻る。</p>
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="box">
+        <h2>向きは五角形の頂点だけ</h2>
+        <p>いま貼った切れ端の k₁（●）と k₂（○）。回転は 72度刻みの 5 通りしかない。</p>
+        <svg id="pent" viewBox="-80 -80 160 160" width="180" height="180" role="img" aria-label="五角形の5頂点と現在の番地"></svg>
+      </div>
+      <div class="box">
+        <h2>数える</h2>
+        <div class="count-line" id="count"></div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="note">番地 (k₁, k₂)・枚数・向きの選び方は整数だけで決まる。切れ端の内側の曲面は、画面に出すために実数の対で作図している（4つの成分 x₁, x₂, y₁, y₂ のうち y₁ と y₂ を角 α で混ぜて3次元に落とす）。作図の式はハンソンの描き方に従った。図は既存の絵を整数の番地で組み直したもので、それ以上のことは主張しない。</p>
+</div>
+
+<script>
+(function(){
+  const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const M=14;                    // 切れ端一枚の網目
+  // 五角形の頂点 k の向き（作図用の表、5行だけ）
+  const PC=[],PS=[];
+  for(let k=0;k<5;k++){PC.push(Math.cos(2*Math.PI*k/5));PS.push(Math.sin(2*Math.PI*k/5));}
+
+  // 実数の対 (x,y) の 2/5 乗
+  function pw(x,y){const r=Math.pow(Math.hypot(x,y),0.4),a=Math.atan2(y,x)*0.4;return [r*Math.cos(a),r*Math.sin(a)];}
+
+  // 25枚の頂点を作る
+  const patches=[];
+  for(let k1=0;k1<5;k1++)for(let k2=0;k2<5;k2++){
+    const pts=[];
+    for(let i=0;i<=M;i++){
+      const xi=-1+2*i/M, ch=Math.cosh(xi), sh=Math.sinh(xi);
+      for(let j=0;j<=M;j++){
+        const th=(Math.PI/2)*j/M, ct=Math.cos(th), st=Math.sin(th);
+        const a=pw(ch*ct, sh*st);      // 1 つ目の成分
+        const b=pw(ch*st, -sh*ct);     // 2 つ目の成分
+        const x1=PC[k1]*a[0]-PS[k1]*a[1], y1=PS[k1]*a[0]+PC[k1]*a[1];
+        const x2=PC[k2]*b[0]-PS[k2]*b[1], y2=PS[k2]*b[0]+PC[k2]*b[1];
+        pts.push([x1,x2,y1,y2]);
+      }
+    }
+    patches.push({k1,k2,pts,born:-1});
+  }
+
+  // 番地の表
+  const grid=document.getElementById('grid');
+  grid.appendChild(Object.assign(document.createElement('div'),{className:'hd',textContent:'k₁\\k₂'}));
+  for(let c=0;c<5;c++)grid.appendChild(Object.assign(document.createElement('div'),{className:'hd',textContent:c}));
+  const cells=[];
+  let focus=-1;
+  for(let r=0;r<5;r++){
+    grid.appendChild(Object.assign(document.createElement('div'),{className:'hd',textContent:r}));
+    for(let c=0;c<5;c++){
+      const b=document.createElement('button');b.type='button';b.className='cell';b.id='cell'+r+c;
+      b.textContent='('+r+','+c+')';
+      const idx=r+r+r+r+r+c;         // 5r+c を足し算で
+      b.addEventListener('click',()=>{focus=(focus===idx)?-1:idx;updateGrid();});
+      grid.appendChild(b);cells.push(b);
+    }
+  }
+
+  // 数える：5変数・5次の単項式を足し算で数え上げる
+  let mono=0;
+  for(let a=0;a<=5;a++)for(let b=0;a+b<=5;b++)for(let c=0;a+b+c<=5;c++)for(let d=0;a+b+c+d<=5;d++){mono=mono+1;}
+  let gl=0;for(let i=0;i<5;i++)for(let j=0;j<5;j++)gl=gl+1;
+  const h21=mono-gl, diff=1-h21, chi=diff+diff;
+  document.getElementById('count').innerHTML=
+    'a+b+c+d+e = 5 の並べ方　<b>'+mono+'</b><br>'+
+    '座標の取り換え 5×5　<b>'+gl+'</b><br>'+
+    mono+' − '+gl+' = <b>'+h21+'</b><br>'+
+    '(1 − '+h21+') を 2 回足す = <b>'+chi+'</b>';
+
+  // 五角形
+  const pent=document.getElementById('pent');
+  function drawPent(k1,k2){
+    const R=58;let s='';const P=[];
+    for(let k=0;k<5;k++){const x=R*PS[k],y=-R*PC[k];P.push([x,y]);}
+    s+='<polygon points="'+P.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="none" stroke="var(--line)" stroke-width="1.5"/>';
+    for(let k=0;k<5;k++){
+      const [x,y]=P[k];
+      s+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="var(--panel)" stroke="var(--muted)"/>';
+      s+='<text x="'+(x*1.28).toFixed(1)+'" y="'+(y*1.28+4).toFixed(1)+'" text-anchor="middle">'+k+'</text>';
+    }
+    if(k1>=0){
+      const a=P[k1],b=P[k2];
+      s+='<circle cx="'+a[0].toFixed(1)+'" cy="'+a[1].toFixed(1)+'" r="7" fill="var(--k'+k1+')"/>';
+      s+='<circle cx="'+b[0].toFixed(1)+'" cy="'+b[1].toFixed(1)+'" r="11" fill="none" stroke="var(--ink)" stroke-width="2"/>';
+    }
+    pent.innerHTML=s;
+  }
+
+  // 状態
+  let shown=0, playing=!reduce, last=0, yaw=0.6, pitch=-0.35, alphaStep=5, t0=performance.now();
+  const status=document.getElementById('status');
+  function updateGrid(){
+    cells.forEach((c,i)=>{
+      const on=i<shown;c.classList.toggle('on',on);
+      c.style.background=on?'var(--k'+patches[i].k1+')':'transparent';
+      c.style.opacity=on?(0.55+0.45*(patches[i].k2+1)/5):1;
+      c.classList.toggle('focus',i===focus);
+    });
+    status.textContent='貼った枚数 '+shown+' / 25'+(shown>0?'　いま (k₁, k₂) = ('+patches[shown-1].k1+', '+patches[shown-1].k2+')':'');
+    drawPent(shown>0?patches[shown-1].k1:-1, shown>0?patches[shown-1].k2:-1);
+  }
+  function add(){if(shown<25){patches[shown].born=performance.now();shown=shown+1;updateGrid();}}
+  function reset(){shown=0;patches.forEach(p=>p.born=-1);updateGrid();}
+
+  const playBtn=document.getElementById('play');
+  playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?'一時停止':'再生';});
+  playBtn.textContent=playing?'一時停止':'再生';
+  document.getElementById('step').addEventListener('click',add);
+  document.getElementById('reset').addEventListener('click',reset);
+  document.getElementById('all').addEventListener('click',()=>{while(shown<25){patches[shown].born=0;shown=shown+1;}updateGrid();});
+  const alphaIn=document.getElementById('alpha'),alphaV=document.getElementById('alphaV');
+  alphaIn.addEventListener('input',()=>{alphaStep=+alphaIn.value;alphaV.textContent=alphaStep+'/20';});
+
+  // ドラッグで回す
+  let drag=null;
+  cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY,yaw,pitch];cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;yaw=drag[2]+(e.clientX-drag[0])*0.01;pitch=Math.max(-1.4,Math.min(1.4,drag[3]+(e.clientY-drag[1])*0.01));});
+  cv.addEventListener('pointerup',()=>{drag=null;});
+  cv.addEventListener('pointercancel',()=>{drag=null;});
+
+  function hex(h){h=h.trim();if(h[0]==='#')h=h.slice(1);if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+
+  function resize(){const d=window.devicePixelRatio||1,w=cv.clientWidth;cv.width=Math.round(w*d);cv.height=Math.round(w*d);}
+  window.addEventListener('resize',resize);resize();
+
+  function frame(now){
+    // 自動で一枚ずつ足す
+    if(playing){
+      if(now-last>520){
+        if(shown<25){add();last=now;}
+        else if(now-last>5200){reset();last=now;}
+      }
+      if(!drag)yaw+=0.004;
+    }
+    const cs=getComputedStyle(document.documentElement);
+    const cols=[0,1,2,3,4].map(k=>hex(cs.getPropertyValue('--k'+k)));
+    const ink=hex(cs.getPropertyValue('--ink'));
+    const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    const al=(Math.PI/2)*alphaStep/20, ca=Math.cos(al), sa=Math.sin(al);
+    const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const S=W*0.27, D=4.2;
+    const quads=[];
+    for(let pi=0;pi<shown;pi++){
+      const p=patches[pi];
+      let g=1; if(p.born>0){g=Math.min(1,(now-p.born)/420);}
+      const sc=0.55+0.45*g;
+      const P=p.pts.map(q=>{
+        let X=q[0]*sc, Y=q[1]*sc, Z=(ca*q[2]+sa*q[3])*sc;
+        const x=cy*X+sy*Z, z0=-sy*X+cy*Z;
+        const y=cp*Y-sp*z0, z=sp*Y+cp*z0;
+        const f=D/(D-z);
+        return [W/2+x*S*f, H/2-y*S*f, z, x, y];
+      });
+      const dim=(focus>=0&&focus!==pi)?0.18:1;
+      for(let i=0;i<M;i++)for(let j=0;j<M;j++){
+        const a=P[i*(M+1)+j],b=P[(i+1)*(M+1)+j],c=P[(i+1)*(M+1)+j+1],d=P[i*(M+1)+j+1];
+        const ux=c[3]-a[3],uy=c[4]-a[4],uz=c[2]-a[2],vx=d[3]-b[3],vy=d[4]-b[4],vz=d[2]-b[2];
+        let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const nl=Math.hypot(nx,ny,nz)||1;
+        const lit=0.35+0.65*Math.abs((nx*0.3+ny*0.5+nz*0.81)/nl);
+        quads.push([(a[2]+b[2]+c[2]+d[2])/4,a,b,c,d,p.k1,p.k2,lit,dim*g]);
+      }
+    }
+    quads.sort((u,v)=>u[0]-v[0]);
+    for(const q of quads){
+      const base=cols[q[5]], t=0.15*q[6]/4, l=q[7];
+      const r=Math.round((base[0]*(1-t)+ink[0]*t)*l), gg=Math.round((base[1]*(1-t)+ink[1]*t)*l), bb=Math.round((base[2]*(1-t)+ink[2]*t)*l);
+      ctx.fillStyle='rgba('+r+','+gg+','+bb+','+(0.92*q[8]).toFixed(3)+')';
+      ctx.strokeStyle='rgba('+r+','+gg+','+bb+','+(0.6*q[8]).toFixed(3)+')';
+      ctx.beginPath();ctx.moveTo(q[1][0],q[1][1]);ctx.lineTo(q[2][0],q[2][1]);ctx.lineTo(q[3][0],q[3][1]);ctx.lineTo(q[4][0],q[4][1]);ctx.closePath();
+      ctx.fill();ctx.stroke();
+    }
+    requestAnimationFrame(frame);
+  }
+  if(reduce){while(shown<25){patches[shown].born=0;shown=shown+1;}}
+  updateGrid();
+  requestAnimationFrame(frame);
+})();
+</script>

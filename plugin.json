@@ -1,0 +1,12 @@
+{
+  "name": "b13-library",
+  "version": "0.1.0",
+  "description": "B13 ライブラリ ―『Nature Knows Only Addition ― 動く図で読む足し算だけの数学 ―』のコード・章・動く図。整数と足し算と比較だけで四則・剰余・Z[φ]・根・指数対数・三角・双曲・定数を計算し、動く図を作る。",
+  "author": {
+    "name": "MORC.B13"
+  },
+  "homepage": "https://github.com/morcb13-bit/B13-Library",
+  "repository": "https://github.com/morcb13-bit/B13-Library",
+  "license": "MIT",
+  "keywords": ["B13", "addition-only", "balanced-ternary", "zeckendorf", "golden-ratio", "integer-arithmetic"]
+}

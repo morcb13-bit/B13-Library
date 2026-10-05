@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>φ倍で跳ぶ格子</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 整数の格子（横 a、縦 b）。点 a + bφ のノルムの符号で色を分け、φ 倍・φ で割るたびに点が跳ぶ跡を描く */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,290px);gap:16px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;max-width:620px;aspect-ratio:1/1;height:auto;justify-self:center;cursor:crosshair}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+.kv span{font-size:.8rem;color:var(--muted);letter-spacing:.06em}
+.kv b{font-family:var(--mono);font-weight:600;font-size:1.2rem;font-variant-numeric:tabular-nums}
+.trail{font-family:var(--mono);font-size:.84rem;line-height:1.7;color:var(--muted);max-height:220px;overflow:auto}
+.trail .p{color:var(--pos)} .trail .n{color:var(--neg)}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 11px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500;font-size:.85rem}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.note{font-size:.84rem;color:var(--muted);line-height:1.6}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>φ倍で跳ぶ格子</h1>
+    <p class="lead">格子の点 (a, b) は、数 a + bφ です。点の色はノルム a² + ab − b² の符号で、青が正、赤が負です。φ 倍は (a, b) → (b, a + b)、φ で割るのは (a, b) → (b − a, a) で、どちらも足し算だけです。φ 倍するたびに、点は青と赤の領域を交互に跳び、ノルムの絶対値は変わりません。点を押すと、そこから跳びます。</p>
+  </header>
+  <div class="main">
+    <div class="box"><canvas id="cv" width="1100" height="1100" aria-label="φ倍で跳ぶ格子"></canvas></div>
+    <div class="box">
+      <div class="kv">
+        <span>いまの数</span><b id="cur">3 + 1φ</b>
+        <span>ノルム</span><b id="nrm">+11</b>
+      </div>
+      <div class="controls">
+        <button id="up">φ 倍</button><button id="dn">φ で割る</button><button id="auto" class="on">自動</button>
+      </div>
+      <div class="presets" id="presets"></div>
+      <div class="trail" id="trail"></div>
+      <p class="note">輪で囲んだ点はノルム ±1（単数）です。1 から φ 倍と φ で割ることを繰り返し、符号を裏返せば、全部の単数に届きます。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const R = 13;   // 表示する範囲
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const norm = ([a, b]) => a * a + a * b - b * b;
+  const up = ([a, b]) => [b, a + b], dn = ([a, b]) => [b - a, a];
+  const show = ([a, b]) => `${a < 0 ? '−' + (-a) : a} ${b < 0 ? '−' : '+'} ${Math.abs(b)}φ`;
+  const sgn = n => n > 0 ? '+' + n : n < 0 ? '−' + (-n) : '0';
+  const inBox = ([a, b]) => Math.abs(a) <= R && Math.abs(b) <= R;
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = cv.width, S = W / (2 * R + 2), C = W / 2;
+  const X = a => C + a * S, Y = b => C - b * S;
+  let trail = [[3, 1]], dir = 1, auto = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    g.clearRect(0, 0, W, W);
+    // 軸
+    g.strokeStyle = rule; g.lineWidth = 2; g.beginPath(); g.moveTo(X(-R - 1), Y(0)); g.lineTo(X(R + 1), Y(0)); g.moveTo(X(0), Y(-R - 1)); g.lineTo(X(0), Y(R + 1)); g.stroke();
+    // ノルム 0 の二本の線（観察者側の作図：傾き φ と −1/φ）
+    const phi = (1 + Math.sqrt(5)) / 2;
+    g.setLineDash([12, 10]); g.strokeStyle = muted; g.lineWidth = 2;
+    [phi, -1 / phi].forEach(m => { const t = Math.min(R + 1, (R + 1) / Math.abs(m)); g.beginPath(); g.moveTo(X(-t), Y(-t * m)); g.lineTo(X(t), Y(t * m)); g.stroke(); });
+    g.setLineDash([]);
+    // 今のノルムの双曲線（±n）を薄く
+    const n0 = Math.abs(norm(trail[trail.length - 1]));
+    if (n0 > 0) { [n0, -n0].forEach(n => { g.strokeStyle = n > 0 ? pos : neg; g.globalAlpha = 0.35; g.lineWidth = 3;
+      // a² + ab − b² = n を b について解いて描く（観察者側の作図）
+      [1, -1].forEach(sb => { g.beginPath(); let first = true;
+        for (let a = -R - 1; a <= R + 1; a += 0.02) { const d = 5 * a * a - 4 * n; if (d < 0) { first = true; continue; } const b = (a + sb * Math.sqrt(d)) / 2;
+          if (Math.abs(b) > R + 1) { first = true; continue; } if (first) { g.moveTo(X(a), Y(b)); first = false; } else g.lineTo(X(a), Y(b)); } g.stroke(); }); });
+      g.globalAlpha = 1; }
+    // 格子点
+    for (let a = -R; a <= R; a++) for (let b = -R; b <= R; b++) { const n = norm([a, b]);
+      g.beginPath(); g.arc(X(a), Y(b), 5, 0, 7); g.fillStyle = n > 0 ? pos : n < 0 ? neg : ink; g.globalAlpha = n === 0 ? 1 : 0.38; g.fill(); g.globalAlpha = 1;
+      if (Math.abs(n) === 1) { g.beginPath(); g.arc(X(a), Y(b), 11, 0, 7); g.strokeStyle = n > 0 ? pos : neg; g.lineWidth = 3; g.stroke(); } }
+    // 跡
+    g.strokeStyle = ink; g.lineWidth = 3;
+    for (let i = 1; i < trail.length; i++) { const p = trail[i - 1], q = trail[i]; if (!inBox(p) || !inBox(q)) continue;
+      g.beginPath(); g.moveTo(X(p[0]), Y(p[1])); g.lineTo(X(q[0]), Y(q[1])); g.stroke(); }
+    trail.forEach((p, i) => { if (!inBox(p)) return; const n = norm(p); g.beginPath(); g.arc(X(p[0]), Y(p[1]), 12, 0, 7); g.fillStyle = n > 0 ? pos : neg; g.fill(); });
+    const c = trail[trail.length - 1]; if (inBox(c)) { g.beginPath(); g.arc(X(c[0]), Y(c[1]), 22, 0, 7); g.strokeStyle = glow; g.lineWidth = 7; g.stroke(); }
+    g.fillStyle = muted; g.font = '500 26px "IBM Plex Mono",monospace'; g.textAlign = 'right'; g.fillText('a', X(R + 1) - 4, Y(0) - 12); g.textAlign = 'left'; g.fillText('b', X(0) + 12, Y(R + 1) + 26);
+    document.getElementById('cur').textContent = show(c); document.getElementById('nrm').textContent = sgn(norm(c));
+    document.getElementById('trail').innerHTML = trail.map(p => `<div class="${norm(p) > 0 ? 'p' : 'n'}">${show(p)}　N ${sgn(norm(p))}</div>`).join('');
+    document.getElementById('trail').scrollTop = 1e6;
+  }
+  function jump(d) { const c = trail[trail.length - 1], nx = d > 0 ? up(c) : dn(c); trail.push(nx); if (trail.length > 40) trail.shift(); draw(); }
+  function start(p) { trail = [p]; dir = 1; draw(); }
+  document.getElementById('up').onclick = () => { setAuto(false); jump(1); };
+  document.getElementById('dn').onclick = () => { setAuto(false); jump(-1); };
+  const autoBtn = document.getElementById('auto'); const setAuto = v => { auto = v; autoBtn.classList.toggle('on', v); };
+  autoBtn.onclick = () => setAuto(!auto);
+  [[[1, 0], '1'], [[3, 1], '3 + φ'], [[2, 1], '2 + φ'], [[5, 2], '5 + 2φ'], [[2, 0], '2'], [[3, 0], '3']].forEach(([p, t]) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { start(p); setAuto(true); }; document.getElementById('presets').append(b); });
+  cv.addEventListener('click', e => { const r = cv.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * W, sy = (e.clientY - r.top) / r.height * W;
+    const a = Math.round((sx - C) / S), b = Math.round((C - sy) / S); if (Math.abs(a) <= R && Math.abs(b) <= R && (a || b)) { start([a, b]); setAuto(true); } });
+  draw();
+  let last = performance.now(), acc = 0;
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (auto) { acc += dt * 1.2; if (acc >= 1) { acc = 0; const c = trail[trail.length - 1], nx = dir > 0 ? up(c) : dn(c);
+      if (!inBox(nx)) { dir = -dir; } else { trail.push(nx); if (trail.length > 40) trail.shift(); draw(); } } }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

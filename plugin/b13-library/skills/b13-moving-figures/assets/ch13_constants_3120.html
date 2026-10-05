@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3120の目盛りで読む定数</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 一本の物差し。段ごとに 3120 倍に拡大し、いちばん近い目盛りに着地した位置を桁として書き取る */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.88rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;display:grid;gap:12px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.digits{display:flex;flex-wrap:wrap;gap:6px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.digits span{padding:6px 10px;border-radius:8px;border:1.5px solid var(--rule);background:var(--cell);font-weight:600;min-width:62px;text-align:right}
+.digits span.p{color:var(--pos)} .digits span.n{color:var(--neg)}
+.digits span.now{outline:3px solid var(--glow);outline-offset:1px}
+.digits span.k{color:var(--muted);font-weight:400;border-style:dashed}
+.say{font-weight:700;min-height:1.5em}
+.say em{font-style:normal;background:var(--glow);color:#1d2622;padding:2px 8px;border-radius:4px;margin-right:8px;font-family:var(--mono)}
+.presets,.controls{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:600;min-width:52px}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>3120の目盛りで読む定数</h1>
+    <p class="lead">定数を 3120 倍して、いちばん近い目盛りに着地させます。着地した目盛りの番号が一つ目の桁です。着地しきれなかった残りをまた 3120 倍し、−1560〜+1559 の物差しの上で次の目盛りを選びます。これを繰り返すと、定数が 3120 の桁の並びになります。</p>
+  </header>
+  <div class="presets" id="pre"></div>
+  <div class="box">
+    <canvas id="cv" width="1400" height="300" aria-label="3120の目盛りの物差し"></canvas>
+    <div class="say" id="say">&nbsp;</div>
+    <div class="digits" id="digits"></div>
+    <p class="note">桁の並びは、本のコード（code/b13_constants.py）が整数だけで出したものを埋め込んでいます。物差しの上の点の位置は作図用です。π の一つ目の桁 9802 は 3 周と 442 番地、角としての π（半周）は 1560 番地です。</p>
+  </div>
+  <div class="controls"><button id="play" class="on">停止</button><button id="one">一段</button></div>
+</div>
+
+<script>
+(() => {
+  const D = {"π": [9802, -720, -1475, -1354, -367, -1280, -159, 1456, -2, -556, 1293, -1006], "e": [8481, 123, -1151, -1343, -1498, 460, 1192, -862, 948, -1273, -507, -90], "φ": [5048, 830, 187, 1471, -1051, 273, -1080, 638, -1167, 560, -1188, -265], "√5": [6977, -1460, 375, -179, 1018, 545, 960, 1275, 786, 1119, 744, -530], "ln 2": [2163, -1188, -267, 191, 1019, 770, -717, -844, 72, -923, -188, 82]};
+  const SHOWN = 10, BASE = 3120;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let name = 'π', stage = 0, phase = 0, anim = 0;
+  // 段 n の物差しの上での位置（作図用）：a_n + a_{n+1}/3120 + …
+  const posAt = n => { const d = D[name]; let v = 0; for (let i = d.length - 1; i >= n; i--) v = d[i] + v / BASE; return v; };
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    const W = cv.width, L = 60, R = W - 60, y = 160;
+    g.clearRect(0, 0, W, cv.height);
+    const first = stage === 0;
+    const lo = first ? 0 : -1560, hi = first ? Math.ceil(D[name][0] / BASE + 0.0001) * BASE : 1560;
+    const X = v => L + (v - lo) / (hi - lo) * (R - L);
+    g.strokeStyle = ink; g.lineWidth = 3; g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke();
+    const minor = first ? 260 : 52, major = first ? 3120 : 780;
+    for (let v = lo; v <= hi; v += minor) { const big = ((v % major) + major) % major === 0; g.strokeStyle = big ? ink : rule; g.lineWidth = big ? 3 : 1.5;
+      g.beginPath(); g.moveTo(X(v), y - (big ? 26 : 12)); g.lineTo(X(v), y + (big ? 26 : 12)); g.stroke();
+      if (big) { g.fillStyle = muted; g.font = '500 22px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.fillText(first ? `${v / BASE} 周` : (v > 0 ? '+' + v : v), X(v), y + 56); } }
+    const p = posAt(stage), a = D[name][stage];
+    const shownP = phase === 0 ? lo + (p - lo) * Math.min(1, anim) : p;
+    g.fillStyle = pos; g.beginPath(); g.arc(X(shownP), y - 50, 12, 0, 7); g.fill();
+    g.strokeStyle = pos; g.lineWidth = 2; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(X(shownP), y - 38); g.lineTo(X(shownP), y); g.stroke(); g.setLineDash([]);
+    if (phase >= 1) { g.fillStyle = glow; g.beginPath(); g.arc(X(a), y, 14, 0, 7); g.fill(); g.fillStyle = ink; g.font = '600 30px "IBM Plex Mono",monospace'; g.textAlign = 'center'; g.fillText(a > 0 ? '+' + a : a, X(a), y - 80); }
+    g.fillStyle = muted; g.font = '400 22px "BIZ UDPGothic",sans-serif'; g.textAlign = 'left'; g.fillText(first ? `${name} を 3120 倍した位置` : `残りを 3120 倍した位置（${stage + 1} 段目）`, L, 34);
+    const ds = D[name].slice(0, SHOWN);
+    document.getElementById('digits').innerHTML = ds.map((v, i) => `<span class="${i > stage || (i === stage && phase < 1) ? 'k' : v >= 0 ? 'p' : 'n'}${i === stage && phase >= 1 ? ' now' : ''}">${i > stage || (i === stage && phase < 1) ? '…' : v}</span>`).join('');
+    document.getElementById('say').innerHTML = phase >= 1 ? (first ? `<em>${a}</em>${Math.floor(a / BASE)} 周と ${a - Math.floor(a / BASE) * BASE} 番地に着地` : `<em>${a > 0 ? '+' + a : a}</em>いちばん近い目盛りに着地。残りを次の段へ`) : '&nbsp;';
+  }
+  Object.keys(D).forEach(k => { const b = document.createElement('button'); b.textContent = k; b.onclick = () => { name = k; stage = 0; phase = 0; anim = 0; mark(); setPlay(true); }; document.getElementById('pre').append(b); });
+  const mark = () => document.querySelectorAll('#pre button').forEach(b => b.classList.toggle('on', b.textContent === name));
+  function advance() { if (phase === 0) { phase = 1; anim = 1; } else if (stage < SHOWN - 1) { stage++; phase = 0; anim = 0; } else { const ks = Object.keys(D); name = ks[(ks.indexOf(name) + 1) % ks.length]; stage = 0; phase = 0; anim = 0; mark(); } }
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('one').onclick = () => { setPlay(false); advance(); draw(); };
+  mark(); stage = 3; phase = 1; anim = 1; draw(); setPlay(playing);
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (playing) { if (phase === 0) { anim += dt * 1.6; if (anim >= 1) { anim = 1; acc += dt; if (acc > 0.3) { acc = 0; advance(); } } } else { acc += dt; if (acc > 1.1) { acc = 0; advance(); } } draw(); }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

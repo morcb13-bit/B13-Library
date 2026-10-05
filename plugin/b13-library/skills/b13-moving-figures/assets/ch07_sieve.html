@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>跳んで印をつける篩</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 数の表を選んだ列数で折り返す。残った数から順に、その数ずつ跳んで印をつける。列数 6 では残りが 2 本の縦の列に並ぶ */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff; --off:#dfe3de;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; --off:#1a201d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; --off:#1a201d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:900px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+.say{font-weight:700;min-height:1.5em}
+.say em{font-style:normal;background:var(--glow);color:#1d2622;padding:2px 8px;border-radius:4px;margin-right:8px;font-family:var(--mono)}
+.grid{display:grid;gap:3px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.grid div{height:30px;display:grid;place-items:center;border-radius:5px;font-size:.82rem;font-weight:600;background:var(--cell);border:1px solid var(--rule);color:var(--ink);transition:background .2s,color .2s}
+.grid div.x{background:var(--off);color:var(--muted);border-color:transparent;font-weight:400}
+.grid div.p{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+.grid div.hop{outline:3px solid var(--glow);outline-offset:-1px}
+.grid div.one{color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.note{font-size:.88rem;color:var(--muted)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>跳んで印をつける篩</h1>
+    <p class="lead">2 から順に見て、まだ印のない数に来たら、その数ずつ跳んで先の数に印をつけます。跳ぶのは足し算です。最後まで印のつかなかった数が素数です。列の数を 6 にすると、2 と 3 で跳んだ後に残る数が、縦の 2 本の列（6 で割って 1 余る列と 5 余る列）に並びます。</p>
+  </header>
+  <div class="controls">
+    <span class="note">列の数</span>
+    <button data-c="6" class="on">6</button><button data-c="10">10</button><button data-c="13">13</button><button data-c="30">30</button>
+    <span class="note">　</span>
+    <button id="play" class="on">停止</button><button id="again">最初から</button>
+  </div>
+  <div class="box">
+    <div class="say" id="say">&nbsp;</div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 180;
+  let cols = 6, hit = [], primes = [], p = 2, q = 0, done = false, hops = [];
+  const grid = document.getElementById('grid'), say = document.getElementById('say');
+  const cells = [];
+  function build() {
+    grid.innerHTML = ''; cells.length = 0; grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    for (let n = 1; n <= N; n++) { const d = document.createElement('div'); d.textContent = n; if (n === 1) d.className = 'one'; grid.append(d); cells[n] = d; }
+  }
+  function reset() { hit = Array(N + 1).fill(false); primes = []; p = 2; q = 0; done = false; hops = []; build(); paint(); say.innerHTML = '&nbsp;'; }
+  // 一手：今の p から q を一つ跳ぶ。跳び終わったら次の印のない数へ
+  function tick() {
+    if (done) return;
+    if (q === 0) { while (p <= N && hit[p]) p++; if (p > N) { done = true; say.innerHTML = `<em>${primes.length}</em>${N} までに印のつかなかった数（素数）`; return; }
+      primes.push(p); q = p + p; say.innerHTML = `<em>${p}</em>${p} ずつ跳んで印をつける`; if (q > N) { q = 0; p++; } return; }
+    hit[q] = true; hops = [q]; q += p; if (q > N) { q = 0; p++; }
+  }
+  function paint() {
+    for (let n = 2; n <= N; n++) { const c = cells[n]; c.className = hit[n] ? 'x' : primes.includes(n) ? 'p' : ''; if (hops.includes(n)) c.classList.add('hop'); }
+  }
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { cols = +b.dataset.c; document.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); reset(); setPlay(true); });
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, acc = 0, last = performance.now(), hold = 0;
+  const playBtn = document.getElementById('play');
+  const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('again').onclick = () => { reset(); setPlay(true); };
+  reset(); while (!done) tick(); hops = []; paint(); setPlay(playing);
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (playing) { if (done) { hold += dt; if (hold > 3) { hold = 0; reset(); } }
+      else { const rate = p <= 3 ? 14 : 30; acc += dt * rate; let ch = false; while (acc >= 1 && !done) { acc -= 1; tick(); ch = true; } if (ch) paint(); } }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

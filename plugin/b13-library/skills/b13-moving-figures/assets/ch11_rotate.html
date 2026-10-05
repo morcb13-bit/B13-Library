@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>組で回す円</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 左に円と回る矢（整数の組）、右にその影の波（cos）と三角波を一周ぶん並べる */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 18px}
+.kv div{display:grid;gap:2px}
+.kv span{font-size:.78rem;color:var(--muted);letter-spacing:.06em}
+.kv b{font-family:var(--mono);font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:4px;margin-right:6px;vertical-align:middle;border-radius:2px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>組で回す円</h1>
+    <p class="lead">矢は整数の組 (x, y) です。一番地（一周の 3120 分の 1）回すたびに、(c·x − s·y, s·x + c·y) と置き換えます。c と s は一番地ぶんの cos と sin の目盛りで、最初に一度だけ足し算と割り算の級数で作ります。虚数は使いません。矢の横の影が cos の波です。比べるために、番地から足し算だけで作る三角波を重ねています。</p>
+  </header>
+  <div class="box">
+    <canvas id="cv" width="1400" height="560" aria-label="組で回す円"></canvas>
+    <div class="legend"><span><i style="background:var(--pos)"></i>cos（組の x）</span><span><i style="background:var(--neg)"></i>sin（組の y）</span><span><i style="background:var(--grn)"></i>三角波</span><span><i style="background:var(--glow)"></i>五角形の頂点（624 番地ごと）</span></div>
+    <div class="kv">
+      <div><span>番地</span><b id="p">0</b></div>
+      <div><span>cos（組の x）</span><b id="c">1</b></div>
+      <div><span>sin（組の y）</span><b id="s">0</b></div>
+      <div><span>三角波 ÷ 780</span><b id="t">1</b></div>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="play" class="on">停止</button>
+    <button data-v="1">一番地ずつ</button><button data-v="8" class="on">8 番地ずつ</button><button data-v="52">52 番地ずつ</button>
+    <button id="pent">624 番地へ跳ぶ</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const S = 10n ** 30n, BASE = 3120;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const ldiv = (a, m) => { const neg = a < 0n; if (neg) a = -a; const lad = [[m, 1n]]; while (lad[lad.length-1][0] * 2n <= a) { const [s, k] = lad[lad.length-1]; lad.push([s + s, k + k]); }
+    let q = 0n; for (let i = lad.length - 1; i >= 0; i--) { if (a >= lad[i][0]) { a -= lad[i][0]; q += lad[i][1]; } } return neg ? -q : q; };
+  const fm = (a, b) => ldiv(a * b, S);
+  // π（マチンの式）と、一番地ぶんの cos・sin（級数）
+  const atanInv = m => { let tot = 0n, pw = ldiv(S, m), k = 1n, sg = 1n; while (pw) { const t = ldiv(pw, k); tot += sg * t; pw = ldiv(pw, m * m); k += 2n; sg = -sg; } return tot; };
+  const PI = (() => { const q = 4n * atanInv(5n) - atanInv(239n); return 4n * q; })();
+  const th = ldiv(2n * PI, BigInt(BASE)), t2 = fm(th, th);
+  const C1 = (() => { let tm = S, c = S, k = 1n; while (tm) { tm = -ldiv(fm(tm, t2), (2n * k - 1n) * (2n * k)); c += tm; k++; } return c; })();
+  const S1 = (() => { let tm = th, s = th, k = 1n; while (tm) { tm = -ldiv(fm(tm, t2), (2n * k) * (2n * k + 1n)); s += tm; k++; } return s; })();
+  const rot = ([x, y]) => [fm(C1, x) - fm(S1, y), fm(S1, x) + fm(C1, y)];
+  // 一周ぶんの組をはじめに作っておく（回すのは足し算と梯子だけ）
+  const PATH = [[S, 0n]]; for (let i = 1; i <= BASE; i++) PATH.push(rot(PATH[i - 1]));
+  const tri = p => { const d = p <= 1560 ? p : BASE - p; return 780 - d; };
+  const F = x => Number(x * 1000000n / S) / 1e6;              // 作図・表示だけ
+  const show = x => { const neg = x < 0n; if (neg) x = -x; const w = x / S, f = (x - w * S).toString().padStart(30, '0').slice(0, 12); return (neg ? '−' : '') + w + '.' + f; };
+
+  let p = 0, speed = 8;
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), grn = css('--grn'), glow = css('--glow');
+    g.clearRect(0, 0, cv.width, cv.height);
+    const cx = 270, cy = 280, R = 200;
+    g.strokeStyle = rule; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke();
+    g.beginPath(); g.moveTo(cx - R - 20, cy); g.lineTo(cx + R + 20, cy); g.moveTo(cx, cy - R - 20); g.lineTo(cx, cy + R + 20); g.stroke();
+    for (let k = 0; k < 5; k++) { const q = PATH[k * 624]; g.fillStyle = glow; g.beginPath(); g.arc(cx + F(q[0]) * R, cy - F(q[1]) * R, 9, 0, 7); g.fill(); }
+    const [x, y] = PATH[p], X = cx + F(x) * R, Y = cy - F(y) * R;
+    g.strokeStyle = pos; g.lineWidth = 3; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(X, Y); g.lineTo(X, cy); g.stroke();
+    g.strokeStyle = neg; g.beginPath(); g.moveTo(X, Y); g.lineTo(cx, Y); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = ink; g.lineWidth = 5; g.beginPath(); g.moveTo(cx, cy); g.lineTo(X, Y); g.stroke();
+    g.fillStyle = ink; g.beginPath(); g.arc(X, Y, 10, 0, 7); g.fill();
+    // 右：一周ぶんの波
+    const L = 560, Rr = 1370, top = 80, bot = 480, mid = (top + bot) / 2, A = (bot - top) / 2;
+    const WX = q => L + q / BASE * (Rr - L), WY = v => mid - v * A;
+    g.strokeStyle = rule; g.lineWidth = 1.5; g.beginPath(); g.moveTo(L, mid); g.lineTo(Rr, mid); g.moveTo(L, top); g.lineTo(L, bot); g.stroke();
+    g.font = '500 22px "IBM Plex Mono",monospace'; g.fillStyle = muted; g.textAlign = 'center';
+    [0, 780, 1560, 2340, 3120].forEach(q => { g.fillText(q, WX(q), bot + 34); g.beginPath(); g.moveTo(WX(q), bot); g.lineTo(WX(q), bot + 8); g.stroke(); });
+    g.textAlign = 'right'; [[1, '1'], [0, '0'], [-1, '−1']].forEach(([v, t]) => g.fillText(t, L - 10, WY(v) + 7));
+    const curve = (fn, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); for (let q = 0; q <= BASE; q += 8) { const v = fn(q); q ? g.lineTo(WX(q), WY(v)) : g.moveTo(WX(q), WY(v)); } g.stroke(); };
+    curve(q => tri(q) / 780, grn, 3); curve(q => F(PATH[q][0]), pos, 4); curve(q => F(PATH[q][1]), neg, 2);
+    for (let k = 0; k <= 5; k++) { g.fillStyle = glow; g.beginPath(); g.arc(WX(k * 624), WY(F(PATH[k * 624][0])), 7, 0, 7); g.fill(); }
+    g.strokeStyle = ink; g.lineWidth = 2; g.beginPath(); g.moveTo(WX(p), top - 10); g.lineTo(WX(p), bot); g.stroke();
+    g.fillStyle = pos; g.beginPath(); g.arc(WX(p), WY(F(x)), 9, 0, 7); g.fill();
+    document.getElementById('p').textContent = p; document.getElementById('c').textContent = show(x); document.getElementById('s').textContent = show(y);
+    const tv = tri(p); document.getElementById('t').textContent = (tv / 780).toFixed(6);
+  }
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { speed = +b.dataset.v; document.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('on', x === b)); setPlay(true); });
+  document.getElementById('pent').onclick = () => { setPlay(false); p = (Math.floor(p / 624) + 1) * 624; if (p >= BASE) p = 0; draw(); };
+  p = 624; draw(); setPlay(playing);
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (playing) { acc += dt * 30; while (acc >= 1) { acc -= 1; p += speed; if (p >= BASE) p -= BASE; } draw(); }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

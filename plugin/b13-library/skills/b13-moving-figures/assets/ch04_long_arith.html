@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平衡13進の筆算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 筆算の帯：上から a、b、途中の和（または余り）、商。どの行も平衡13進の桁を位をそろえて並べる */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:900px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;display:grid;gap:8px;min-width:0}
+.scroll{overflow-x:auto}
+table{border-collapse:separate;border-spacing:4px 6px;font-family:var(--mono)}
+th{font-family:var(--body);font-weight:700;font-size:.85rem;color:var(--muted);text-align:left;padding-right:10px;white-space:nowrap}
+th.pl{font-family:var(--mono);font-weight:500;font-size:.72rem;text-align:center}
+td.d{width:40px;height:40px;text-align:center;border-radius:8px;border:1.5px solid var(--rule);background:var(--cell);color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+td.d.p{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+td.d.n{background:var(--neg);border-color:var(--neg);color:var(--bg)}
+td.d.hot{outline:3px solid var(--glow);outline-offset:1px}
+td.v{font-size:.9rem;color:var(--muted);padding-left:10px;white-space:nowrap}
+.say{font-family:var(--body);min-height:1.6em;font-weight:700}
+.say em{font-style:normal;background:var(--glow);color:#1d2622;padding:2px 8px;border-radius:4px;margin-right:8px}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:.9rem;color:var(--muted)}
+.stats b{font-family:var(--mono);color:var(--ink);font-size:1.05rem}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+label{display:grid;gap:4px;color:var(--muted);font-size:.85rem}
+input[type=number]{font-family:var(--mono);font-size:1rem;width:8em;padding:5px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font-family:var(--mono);font-weight:500;font-size:.85rem;padding:6px 10px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>平衡13進の筆算</h1>
+    <p class="lead">掛け算は、b の各桁の数だけ a を足します（負の桁なら裏返して足します）。割り算は、上の位から b を足すか引くかして、余りを b の半分以内へ寄せます。引いた回数がその位の商の桁になります。桁は −6〜+6 なので、どの位でも足すのは多くて 6 回です。</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button id="tMul" class="on" role="tab">掛け算</button>
+    <button id="tDiv" role="tab">割り算</button>
+  </div>
+
+  <div class="board">
+    <div class="scroll"><table id="tbl"></table></div>
+    <div class="say" id="say">&nbsp;</div>
+    <div class="stats"><span>足した回数 <b id="adds">0</b></span><span id="chk"></span></div>
+  </div>
+
+  <div class="controls">
+    <label for="ia">a（10進）<input id="ia" type="number" value="2026"></label>
+    <label for="ib">b（10進）<input id="ib" type="number" value="-7"></label>
+    <button id="go">筆算する</button>
+    <button id="play" class="on">停止</button>
+    <button id="one">一歩</button>
+  </div>
+  <div class="presets" id="presets"></div>
+</div>
+
+<script>
+(() => {
+  const N = 13, H = 6, W = 8;   // 表示する位の数
+  const sd = d => d === 0 ? '0' : (d > 0 ? '+' : '−') + Math.abs(d);
+  const sub = s => String(s).replace(/\d/g, c => '₀₁₂₃₄₅₆₇₈₉'[c]).replace(/-/g,'₋');
+  // 第1章と同じ：桁ごとに足し、はみ出したら N を引いて上へ ±1
+  const add = (a, b) => { const o = []; let c = 0;
+    for (let i = 0; i < Math.max(a.length, b.length) || c; i++) { let s = c + (a[i] || 0) + (b[i] || 0); c = 0;
+      if (s > H) { s += -N; c = 1; } else if (s < -H) { s += N; c = -1; } o.push(s); }
+    while (o.length > 1 && o[o.length - 1] === 0) o.pop(); return o.length ? o : [0]; };
+  const neg = a => a.map(x => -x);
+  const sign = a => { for (let i = a.length - 1; i >= 0; i--) { if (a[i] > 0) return 1; if (a[i] < 0) return -1; } return 0; };
+  const shift = (a, k) => { const o = Array(k).fill(0).concat(a); while (o.length > 1 && o[o.length-1] === 0) o.pop(); return o; };
+  const fromInt = n => { let x = [0]; const s = String(Math.abs(n));
+    for (const ch of s) { let y = [0]; for (let i = 0; i < 10; i++) y = add(y, x); x = y; for (let i = 0; i < +ch; i++) x = add(x, [1]); }
+    return n < 0 ? neg(x) : x; };
+  const val = a => a.reduceRight((s, x) => s * N + x, 0);     // 観察者側の読み
+  const moreHalf = (r, s) => sign(add(add(r, r), neg(s))) === sign(s);
+
+  // 筆算の手順を一歩ずつの状態として並べる
+  function planMul(a, b) {
+    const st = []; let acc = [0], adds = 0;
+    st.push({acc, hot: -1, say: 'a と b を平衡13進で並べた', adds});
+    b.forEach((d, k) => { if (!d) return; const part = d > 0 ? shift(a, k) : neg(shift(a, k));
+      for (let t = 1; t <= Math.abs(d); t++) { acc = add(acc, part); adds++;
+        st.push({acc, hot: k, say: `<em>${d > 0 ? '足す' : '裏返して足す'}</em>13${sup(k)} の位へずらした a を ${t} 回目（この桁は ${sd(d)}）`, adds}); } });
+    st.push({acc, hot: -1, say: `<em>積</em>${adds} 回の足し算で終わり`, adds, done: true});
+    return st;
+  }
+  function planDiv(a, b) {
+    const st = []; let r = a.slice(); const q = Array(a.length + 2).fill(0); let adds = 0;
+    st.push({acc: r, q: q.slice(), hot: -1, say: '余りを a から始める', adds});
+    for (let k = a.length + 1; k >= 0; k--) { const s = shift(b, k);
+      while (sign(r)) {
+        if (sign(r) === sign(s) && moreHalf(r, s)) { r = add(r, neg(s)); q[k]++; adds++;
+          st.push({acc: r, q: q.slice(), hot: k, say: `<em>引く</em>13${sup(k)} の位へずらした b を引いた。商のこの位は ${sd(q[k])}`, adds}); }
+        else if (sign(r) === -sign(s) && moreHalf(neg(r), s)) { r = add(r, s); q[k]--; adds++;
+          st.push({acc: r, q: q.slice(), hot: k, say: `<em>足す</em>13${sup(k)} の位へずらした b を足した。商のこの位は ${sd(q[k])}`, adds}); }
+        else break; } }
+    st.push({acc: r, q: q.slice(), hot: -1, say: `<em>着地</em>余りが b の半分以内に入った。余りが残渣`, adds, done: true});
+    return st;
+  }
+  const sup = k => String(k).replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]);
+
+  let mode = 'mul', A = [0], B = [1], steps = [], idx = 0, aN = 2026, bN = -7;
+  const tbl = document.getElementById('tbl');
+
+  function row(label, digits, hot, value) {
+    let h = `<tr><th>${label}</th>`;
+    for (let k = W - 1; k >= 0; k--) { const d = digits && k < digits.length ? digits[k] : 0, show = digits && k < digits.length;
+      h += `<td class="d${show && d > 0 ? ' p' : show && d < 0 ? ' n' : ''}${k === hot ? ' hot' : ''}">${show ? sd(d) : ''}</td>`; }
+    return h + `<td class="v">${value}</td></tr>`;
+  }
+  const v10 = n => `(${n < 0 ? '−' + (-n) : n})₁₀`;
+  function render() {
+    const s = steps[idx];
+    let h = '<tr><th></th>'; for (let k = W - 1; k >= 0; k--) h += `<th class="pl">13${sup(k)}</th>`; h += '<th></th></tr>';
+    h += row('a', A, -1, v10(aN)) + row('b', B, -1, v10(bN));
+    if (mode === 'mul') h += row('途中の和', s.acc, s.hot, v10(val(s.acc)));
+    else { const q = s.q.slice(); while (q.length > 1 && q[q.length-1] === 0) q.pop();
+      h += row('余り', s.acc, -1, v10(val(s.acc))) + row('商', q, s.hot, v10(val(q))); }
+    tbl.innerHTML = h;
+    document.getElementById('say').innerHTML = s.say;
+    document.getElementById('adds').textContent = s.adds;
+    let chk = '';
+    if (s.done) chk = mode === 'mul' ? `確かめ：${v10(aN)} × ${v10(bN)} = ${v10(val(s.acc))}`
+      : (() => { const q = val(s.q), r = val(s.acc); return `確かめ：${v10(q)} × ${v10(bN)} + ${v10(r)} = ${v10(q * bN + r)}`; })();
+    document.getElementById('chk').textContent = chk;
+  }
+
+  function build() {
+    let a = Math.round(+document.getElementById('ia').value), b = Math.round(+document.getElementById('ib').value);
+    if (!Number.isFinite(a) || Math.abs(a) > 2000000) a = 2026;
+    if (!Number.isFinite(b) || Math.abs(b) > 99999) b = -7;
+    if (mode === 'div' && b === 0) b = 7;
+    if (mode === 'mul' && Math.abs(a * b) > 300000000) { b = Math.sign(b) * Math.min(Math.abs(b), 999); }
+    document.getElementById('ia').value = a; document.getElementById('ib').value = b;
+    aN = a; bN = b; A = fromInt(a); B = fromInt(b);
+    steps = mode === 'mul' ? planMul(A, B) : planDiv(A, B); idx = 0; render();
+  }
+
+  const PRE = { mul: [[2026,-7],[123,456],[-89,144],[2026,13]], div: [[2026,7],[56088,123],[100,8],[-2026,13]] };
+  function presets() { const p = document.getElementById('presets'); p.innerHTML = '';
+    PRE[mode].forEach(([a, b]) => { const e = document.createElement('button'); e.textContent = `${a} ${mode === 'mul' ? '×' : '÷'} ${b}`;
+      e.onclick = () => { document.getElementById('ia').value = a; document.getElementById('ib').value = b; build(); setPlay(true); }; p.append(e); }); }
+  function setMode(m) { mode = m; document.getElementById('tMul').classList.toggle('on', m === 'mul'); document.getElementById('tDiv').classList.toggle('on', m === 'div');
+    const [a, b] = PRE[m][0]; document.getElementById('ia').value = a; document.getElementById('ib').value = b; presets(); build(); setPlay(true); }
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, acc = 0, last = performance.now(), hold = 0;
+  const playBtn = document.getElementById('play');
+  const setPlay = p => { playing = p; playBtn.textContent = p ? '停止' : '再生'; playBtn.classList.toggle('on', p); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('one').onclick = () => { setPlay(false); if (idx < steps.length - 1) idx++; render(); };
+  document.getElementById('go').onclick = () => { build(); setPlay(true); };
+  document.getElementById('tMul').onclick = () => setMode('mul');
+  document.getElementById('tDiv').onclick = () => setMode('div');
+
+  presets(); build(); idx = steps.length - 1; render(); setPlay(playing); hold = 2;
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (playing) { if (idx >= steps.length - 1) { hold -= dt; if (hold <= 0) { idx = 0; hold = 2; render(); } }
+      else { acc += dt * 1.6; while (acc >= 1 && idx < steps.length - 1) { acc -= 1; idx++; render(); } } }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

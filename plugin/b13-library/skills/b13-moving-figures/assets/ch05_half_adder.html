@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>振幅の半加算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：二つの源から出口へ向かう道と、一歩ごとに四分の一周回る振幅の矢。下：その半加算器を5つ並べた加算器 */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:900px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead{margin:4px 0 0;color:var(--muted);line-height:1.7;max-width:64ch}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.note{font-size:.88rem;color:var(--muted);line-height:1.6}
+.scroll{overflow-x:auto}
+table{border-collapse:separate;border-spacing:4px 6px;font-family:var(--mono)}
+th{font-family:var(--body);font-weight:700;font-size:.85rem;color:var(--muted);text-align:left;padding-right:10px;white-space:nowrap}
+th.pl{font-family:var(--mono);font-weight:500;font-size:.72rem;text-align:center}
+td.b{width:38px;height:38px;text-align:center;border-radius:8px;border:1.5px solid var(--rule);background:var(--cell);color:var(--muted);font-weight:600}
+td.b.on{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+td.b.c.on{background:var(--neg);border-color:var(--neg)}
+td.b.hot{outline:3px solid var(--glow);outline-offset:1px}
+td.v{font-size:.9rem;color:var(--muted);padding-left:10px;white-space:nowrap}
+label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+input[type=range]{width:160px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>振幅の半加算器</h1>
+    <p class="lead">源 A と源 B から出口へ波を送ります。波は一歩進むごとに矢が四分の一周（780 番地）回ります。出口では届いた矢を足すだけです。歩数が 2 違う「暗の出口」では、両方来ると矢が逆向きで打ち消し、和（どちらか一方）だけが光ります。歩数が同じ「強の出口」では、両方来ると矢が重なって長さ 2 になり、これが桁上がりです。</p>
+  </header>
+
+  <section class="panel" aria-label="半加算器">
+    <h2>半加算器</h2>
+    <canvas id="cv" width="1200" height="600"></canvas>
+    <div class="controls">
+      <button id="ba" class="on">A を送る</button>
+      <button id="bb" class="on">B を送る</button>
+      <button id="replay">波をもう一度送る</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="5桁の加算器">
+    <h2>5桁の加算器</h2>
+    <p class="note">半加算器二つと「または」（明の出口）一つで全加算器になります。それを5つ並べ、下の桁から桁上がりを送ります。</p>
+    <div class="scroll"><table id="tbl"></table></div>
+    <div class="controls">
+      <label for="sx">x <input id="sx" type="range" min="0" max="31" value="13"><b id="vx">13</b></label>
+      <label for="sy">y <input id="sy" type="range" min="0" max="31" value="7"><b id="vy">7</b></label>
+      <button id="run">足す</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const quarter = v => [-v[1], v[0]];
+  const ampAfter = d => { let v = [1, 0]; for (let i = 0; i < d; i++) v = quarter(v); return v; };
+  const outlet = srcs => srcs.reduce((s, [on, d]) => { if (!on) return s; const v = ampAfter(d); return [s[0] + v[0], s[1] + v[1]]; }, [0, 0]);
+  const bright = v => (v[0] || v[1]) ? 1 : 0;
+  const strong = v => (Math.abs(v[0]) === 2 || Math.abs(v[1]) === 2) ? 1 : 0;
+  const DARK = [5, 7], EVEN = [5, 5];
+  const half = (a, b) => [bright(outlet([[a, DARK[0]], [b, DARK[1]]])), strong(outlet([[a, EVEN[0]], [b, EVEN[1]]]))];
+  const either = (a, b) => bright(outlet([[a, EVEN[0]], [b, EVEN[1]]]));
+  const full = (a, b, c) => { const [s1, c1] = half(a, b), [s2, c2] = half(s1, c); return [s2, either(c1, c2)]; };
+
+  // ---- 半加算器の図
+  let A = 1, B = 1, front = 0;
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  const SA = [140, 160], SB = [140, 440], OD = [1000, 160], OE = [1000, 440];
+  // 道：始点・終点・歩数。暗の出口への B の道は遠回り（7 歩）
+  const ROUTES = [
+    {from: 'A', pts: [SA, OD], steps: DARK[0]},
+    {from: 'B', pts: [SB, [560, 300], OD], steps: DARK[1]},
+    {from: 'A', pts: [SA, OE], steps: EVEN[0]},
+    {from: 'B', pts: [SB, OE], steps: EVEN[1]},
+  ];
+  function along(pts, t) {           // 折れ線の上の割合 t の点
+    const segs = []; let L = 0;
+    for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); segs.push(d); L += d; }
+    let s = t * L;
+    for (let i = 0; i < segs.length; i++) { if (s <= segs[i] || i === segs.length - 1) { const u = Math.min(1, s / segs[i]);
+      return [pts[i][0] + (pts[i+1][0]-pts[i][0]) * u, pts[i][1] + (pts[i+1][1]-pts[i][1]) * u]; } s -= segs[i]; }
+  }
+  function arrow(x, y, v, len, col, w) {
+    const ex = x + v[0] * len, ey = y - v[1] * len;
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.stroke();
+    const a = Math.atan2(ey - y, ex - x); g.beginPath();
+    g.moveTo(ex, ey); g.lineTo(ex - 14 * Math.cos(a - 0.5), ey - 14 * Math.sin(a - 0.5)); g.lineTo(ex - 14 * Math.cos(a + 0.5), ey - 14 * Math.sin(a + 0.5)); g.closePath(); g.fill();
+  }
+  function drawHalf() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow'), cell = css('--cell');
+    g.clearRect(0, 0, cv.width, cv.height);
+    ROUTES.forEach(r => { g.strokeStyle = rule; g.lineWidth = 3; g.setLineDash([10, 10]); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.stroke(); g.setLineDash([]);
+      const on = r.from === 'A' ? A : B; if (!on) return;
+      const col = r.from === 'A' ? pos : neg;
+      for (let k = 0; k <= r.steps; k++) { if (k > front) break; const [x, y] = along(r.pts, k / r.steps);
+        g.fillStyle = col; g.globalAlpha = 0.25; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.globalAlpha = 1;
+        if (k === Math.min(front, r.steps)) arrow(x, y, ampAfter(k), 34, col, 5);
+        else if (k < r.steps) { g.font = '600 20px "IBM Plex Mono",monospace'; g.fillStyle = muted; g.textAlign = 'center'; g.fillText(k, x, y - 16); } } });
+    // 源
+    [[SA, 'A', A, pos], [SB, 'B', B, neg]].forEach(([p, t, on, col]) => { g.beginPath(); g.arc(p[0], p[1], 34, 0, 7); g.fillStyle = on ? col : cell; g.fill(); g.strokeStyle = col; g.lineWidth = 3; g.stroke();
+      g.fillStyle = on ? css('--bg') : col; g.font = '800 30px "Shippori Mincho B1",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, p[0], p[1]); });
+    // 出口
+    const arrived = front >= 7;
+    const vd = arrived ? outlet([[A, DARK[0]], [B, DARK[1]]]) : [0, 0], ve = arrived ? outlet([[A, EVEN[0]], [B, EVEN[1]]]) : [0, 0];
+    const outs = [[OD, '暗の出口', vd, `和 ${arrived ? bright(vd) : '…'}`, arrived && bright(vd)], [OE, '強の出口', ve, `桁上がり ${arrived ? strong(ve) : '…'}`, arrived && strong(ve)]];
+    outs.forEach(([p, name, v, res, lit]) => {
+      g.beginPath(); g.arc(p[0], p[1], 52, 0, 7); g.fillStyle = cell; g.fill(); g.strokeStyle = lit ? glow : rule; g.lineWidth = lit ? 10 : 3; g.stroke();
+      if (arrived && (v[0] || v[1])) arrow(p[0], p[1], v, 22, ink, 6);
+      g.fillStyle = muted; g.font = '400 24px "BIZ UDPGothic",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(name, p[0], p[1] - 70);
+      g.fillStyle = ink; g.font = '700 30px "BIZ UDPGothic",sans-serif'; g.fillText(res, p[0], p[1] + 96);
+      g.fillStyle = muted; g.font = '500 22px "IBM Plex Mono",monospace'; g.fillText(arrived ? `(${v[0]}, ${v[1]})` : '', p[0], p[1] + 128); });
+    g.fillStyle = muted; g.font = '400 22px "BIZ UDPGothic",sans-serif'; g.textAlign = 'left';
+    g.fillText('A→暗 5 歩、B→暗 7 歩（2 歩ちがい＝半周）', 300, 560); g.fillText('A→強 5 歩、B→強 5 歩', 300, 590);
+  }
+
+  // ---- 5桁の加算器
+  const bits = n => [0,1,2,3,4].map(i => (n >> i) & 1);
+  let X = 13, Y = 7, stage = 5, plan = [];
+  function makePlan() { plan = []; let c = 0; const S = [], C = [0];
+    for (let i = 0; i < 5; i++) { const [s, co] = full(bits(X)[i], bits(Y)[i], c); S.push(s); c = co; C.push(c); plan.push({S: S.slice(), C: C.slice()}); } }
+  function drawTable() {
+    const st = stage === 0 ? {S: [], C: [0]} : plan[stage - 1];
+    const row = (lab, v, n, cls, hot) => { let h = `<tr><th>${lab}</th>`; for (let i = 5; i >= 0; i--) { const has = i < n, b = has ? v[i] : '';
+      h += `<td class="b${cls}${has && b ? ' on' : ''}${i === hot ? ' hot' : ''}">${b}</td>`; } return h + '</tr>'; };
+    const sumVal = st.S.reduce((s, b, i) => s + (b << i), 0) + (stage === 5 ? (st.C[5] << 5) : 0);
+    let h = '<tr><th></th>' + [5,4,3,2,1,0].map(i => `<th class="pl">2${'⁰¹²³⁴⁵'[i]}</th>`).join('') + '<th></th></tr>';
+    h += row('x', bits(X), 5, '', -1).replace('</tr>', `<td class="v">(${X})₁₀</td></tr>`);
+    h += row('y', bits(Y), 5, '', -1).replace('</tr>', `<td class="v">(${Y})₁₀</td></tr>`);
+    h += row('桁上がり', st.C, st.C.length, ' c', stage < 5 ? stage : -1).replace('</tr>', '<td class="v"></td></tr>');
+    const S6 = stage === 5 ? st.S.concat([st.C[5]]) : st.S;
+    h += row('和', S6, S6.length, '', stage > 0 && stage <= 5 ? stage - 1 : -1).replace('</tr>', `<td class="v">${stage === 5 ? `(${sumVal})₁₀` : ''}</td></tr>`);
+    document.getElementById('tbl').innerHTML = h;
+  }
+  const sx = document.getElementById('sx'), sy = document.getElementById('sy');
+  const upd = () => { X = +sx.value; Y = +sy.value; document.getElementById('vx').textContent = X; document.getElementById('vy').textContent = Y; makePlan(); stage = 0; drawTable(); };
+  sx.oninput = upd; sy.oninput = upd;
+  document.getElementById('run').onclick = () => { stage = 0; drawTable(); };
+
+  // ---- 操作
+  const ba = document.getElementById('ba'), bb = document.getElementById('bb');
+  ba.onclick = () => { A = A ? 0 : 1; ba.classList.toggle('on', !!A); front = 0; };
+  bb.onclick = () => { B = B ? 0 : 1; bb.classList.toggle('on', !!B); front = 0; };
+  document.getElementById('replay').onclick = () => { front = 0; };
+
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  makePlan(); front = 7; drawHalf(); drawTable();
+  let last = performance.now(), accH = 0, accT = 0, hold = 0;
+  function loop(t) { const dt = (t - last) / 1000; last = t;
+    if (front < 7) { accH += dt * 2.2; while (accH >= 1 && front < 7) { accH -= 1; front++; } }
+    if (stage < 5) { accT += dt * 1.4; while (accT >= 1 && stage < 5) { accT -= 1; stage++; drawTable(); } }
+    else if (!still) { hold += dt; if (hold > 3) { hold = 0; } }
+    drawHalf(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

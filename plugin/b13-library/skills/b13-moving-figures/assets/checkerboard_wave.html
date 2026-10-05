@@ -1,0 +1,198 @@
+<title>市松の波動関数</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 上に時空の市松（横が位置、下へ時間）、下にある時刻の断面。右に位相の輪 */
+:root{
+  --bg:#eceff4; --panel:#f8f9fb; --ink:#1b2333; --muted:#5d6779; --line:#cfd5df; --accent:#3b5bdb;
+  --re:#d9480f; --im:#1971c2; --abs:#1b2333;
+  --f-disp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;--re:#ff7a45;--im:#5aa9ff;--abs:#e3e8f1;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;--re:#ff7a45;--im:#5aa9ff;--abs:#e3e8f1;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.7;margin:0;padding-inline:16px;padding-block:24px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(1.6rem,4vw,2.4rem);line-height:1.25;margin:0;text-wrap:balance}
+.sub{font-family:var(--f-mono);color:var(--muted)}
+.lead{max-width:62ch;margin:0}
+.main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;display:block}
+#cv{aspect-ratio:2/1}
+#sl{aspect-ratio:4/1}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font-family:var(--f-body);font-size:.9rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=range]{width:150px;accent-color:var(--accent)}
+.side{display:grid;gap:18px;min-width:0}
+.box{display:grid;gap:6px}
+.box h2{font-family:var(--f-disp);font-weight:600;font-size:1.05rem;margin:0}
+.box p{margin:0;font-size:.88rem;color:var(--muted)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.88rem;line-height:1.8;overflow-wrap:anywhere}
+.key{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.key i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:6px}
+.note{font-size:.8rem;color:var(--muted);max-width:70ch;margin:0;border-top:1px solid var(--line);padding-top:12px}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <h1>市松の波動関数</h1>
+    <div class="sub">右へ一歩・左へ一歩。曲がるたびに位相を四分の一回す。道の数を足し合わせるだけ</div>
+  </header>
+  <p class="lead">一点から出た粒を、斜め右下か斜め左下へ一段ずつ進める。向きを変えた回数で位相の番号 0, 1, 2, 3 が一つずつ進み、その番号ごとに道の数を数える。番号 0 から 2 を引いたものが実の側、1 から 3 を引いたものが虚の側になる。数えるのは整数だけで、色は位相の番号の釣り合いを表す。</p>
+
+  <div class="main">
+    <section class="stage">
+      <canvas id="cv" aria-label="時空の市松に広がる波"></canvas>
+      <div class="ctrl">
+        <button id="play" type="button">一時停止</button>
+        <button id="one" type="button" aria-pressed="true">一点から</button>
+        <button id="two" type="button" aria-pressed="false">二点から</button>
+        <label for="s">まっすぐの重み s <input id="s" type="range" min="1" max="6" step="1" value="3"><span id="sV" class="num">3</span></label>
+        <label for="tc">断面の時刻 <input id="tc" type="range" min="1" max="60" step="1" value="60"><span id="tcV" class="num">60</span></label>
+      </div>
+      <canvas id="sl" aria-label="ある時刻での実の側と虚の側"></canvas>
+      <div class="key"><span><i style="background:var(--re)"></i>実の側（0 − 2）</span><span><i style="background:var(--im)"></i>虚の側（1 − 3）</span><span><i style="background:var(--abs)"></i>大きさ</span></div>
+    </section>
+    <aside class="side">
+      <div class="box">
+        <h2>位相の番号と色</h2>
+        <canvas id="wheel" width="180" height="180" style="width:150px;height:150px" aria-label="位相の番号と色の対応"></canvas>
+        <p>番号 0 が赤、1 が黄緑、2 が青緑、3 が紫。途中の色は番号どうしの釣り合いで決まる。</p>
+      </div>
+      <div class="box">
+        <h2>断面の中央の数</h2>
+        <div class="num" id="center"></div>
+      </div>
+      <div class="box">
+        <h2>つまみの意味</h2>
+        <p>s はまっすぐ進む一歩につける重み。s を大きくすると曲がる道の割合が下がり、波は遅く、幅広く揺れる。s = 1 では光の速さの縁に張りついた鋭い模様になる。</p>
+      </div>
+    </aside>
+  </div>
+  <p class="note">これはファインマンの市松（1+1次元で道を数える方法）を整数のまま走らせたもの。曲がりが少ない側の極限がシュレーディンガー方程式の振る舞いに近づくことは知識として持っているが、この図では検算していない。数え上げは整数の足し算だけで、画面の色と曲線を出す段でだけ実数に直している。</p>
+</div>
+
+<script>
+(function(){
+  const T=60, Wd=2*T+1;
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let s=3, two=false, shown=reduce?T:0, playing=!reduce, last=0, tcut=T;
+  let A=null; // A[t][x+T] = [b0,b1,b2,b3] BigInt
+  function times(v,k){let r=0n;for(let i=0;i<k;i++)r+=v;return r;}
+  function compute(){
+    let R=[],L=[];
+    const z=()=>[0n,0n,0n,0n];
+    for(let x=0;x<Wd;x++){R.push(z());L.push(z());}
+    if(two){R[T-6][0]=1n;R[T+6][0]=1n;}else{R[T][0]=1n;}
+    A=[];
+    const sum=()=>{const row=[];for(let x=0;x<Wd;x++){const a=R[x],b=L[x];row.push([a[0]+b[0],a[1]+b[1],a[2]+b[2],a[3]+b[3]]);}return row;};
+    A.push(sum());
+    for(let t=1;t<=T;t++){
+      const nR=[],nL=[];for(let x=0;x<Wd;x++){nR.push(z());nL.push(z());}
+      for(let x=0;x<Wd;x++)for(let ph=0;ph<4;ph++){
+        const r=R[x][ph],l=L[x][ph];
+        if(r!==0n){
+          if(x+1<Wd)nR[x+1][ph]+=times(r,s);                  // まっすぐ右
+          if(x-1>=0)nL[x-1][(ph+1)&3]+=r;                       // 曲がって左、位相を一つ進める
+        }
+        if(l!==0n){
+          if(x-1>=0)nL[x-1][ph]+=times(l,s);
+          if(x+1<Wd)nR[x+1][(ph+1)&3]+=l;
+        }
+      }
+      R=nR;L=nL;A.push(sum());
+    }
+  }
+  function bitlen(v){if(v<0n)v=-v;return v===0n?0:v.toString(2).length;}
+  function rowFloats(t){
+    const row=A[t];let mb=0;
+    const re=[],im=[];
+    for(let x=0;x<Wd;x++){const b=row[x];const r=b[0]-b[2],i=b[1]-b[3];re.push(r);im.push(i);mb=Math.max(mb,bitlen(r),bitlen(i));}
+    const sh=BigInt(Math.max(0,mb-48));
+    const fr=re.map(v=>Number(v>>sh)),fi=im.map(v=>Number(v>>sh));   // 画面に出すための換算
+    let mx=0;for(let x=0;x<Wd;x++)mx=Math.max(mx,Math.hypot(fr[x],fi[x]));
+    return {fr,fi,mx:mx||1};
+  }
+
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const sl=document.getElementById('sl'),sctx=sl.getContext('2d');
+  function resize(){const d=window.devicePixelRatio||1;for(const c of [cv,sl]){c.width=Math.round(c.clientWidth*d);c.height=Math.round(c.clientHeight*d);}}
+  window.addEventListener('resize',resize);
+
+  function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+  function dark(){return getComputedStyle(document.documentElement).colorScheme==='dark';}
+  function phaseColor(re,im,mag,isDark){
+    const h=(Math.atan2(im,re)*180/Math.PI+360)%360;
+    const g=Math.pow(mag,0.45);
+    const l=isDark?(10+g*55):(96-g*50);
+    return 'hsl('+h.toFixed(0)+',90%,'+l.toFixed(0)+'%)';
+  }
+
+  let rows=[];
+  function rebuild(){compute();rows=[];for(let t=0;t<=T;t++)rows.push(rowFloats(t));center();}
+
+  function draw(){
+    const W=cv.width,H=cv.height,isDark=dark();
+    ctx.fillStyle=css('--panel');ctx.fillRect(0,0,W,H);
+    const cw=W/Wd,ch=H/(T+1);
+    for(let t=0;t<=Math.min(shown,T);t++){
+      const r=rows[t];
+      for(let x=0;x<Wd;x++){
+        const m=Math.hypot(r.fr[x],r.fi[x])/r.mx;
+        if(m===0)continue;
+        ctx.fillStyle=phaseColor(r.fr[x],r.fi[x],m,isDark);
+        ctx.fillRect(x*cw,t*ch,Math.ceil(cw)+0.5,Math.ceil(ch)+0.5);
+      }
+    }
+    // 断面の線
+    ctx.strokeStyle=css('--ink');ctx.lineWidth=Math.max(1,(window.devicePixelRatio||1));
+    ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,(tcut+0.5)*ch);ctx.lineTo(W,(tcut+0.5)*ch);ctx.stroke();ctx.setLineDash([]);
+    // 断面
+    const SW=sl.width,SH=sl.height;sctx.fillStyle=css('--panel');sctx.fillRect(0,0,SW,SH);
+    const t=Math.min(tcut,shown),r=rows[t];
+    sctx.strokeStyle=css('--line');sctx.beginPath();sctx.moveTo(0,SH/2);sctx.lineTo(SW,SH/2);sctx.stroke();
+    const line=(vals,col)=>{sctx.strokeStyle=col;sctx.lineWidth=1.6*(window.devicePixelRatio||1);sctx.beginPath();let first=true;
+      for(let x=0;x<Wd;x++){if((x+t+T)%2!==0)continue;const px=(x+0.5)*SW/Wd,py=SH/2-vals(x)/r.mx*SH*0.45;first?sctx.moveTo(px,py):sctx.lineTo(px,py);first=false;}sctx.stroke();};
+    line(x=>r.fr[x],css('--re'));line(x=>r.fi[x],css('--im'));line(x=>Math.hypot(r.fr[x],r.fi[x]),css('--abs'));
+  }
+  function center(){
+    const t=tcut;const b=A[t][T+((t%2===0)?0:1)];
+    const xi=(t%2===0)?0:1;
+    document.getElementById('center').innerHTML='時刻 '+t+'、位置 '+xi+'<br>番号0: '+b[0]+'<br>番号1: '+b[1]+'<br>番号2: '+b[2]+'<br>番号3: '+b[3];
+  }
+  function drawWheel(){
+    const c=document.getElementById('wheel'),g=c.getContext('2d'),isDark=dark();
+    g.clearRect(0,0,180,180);
+    for(let a=0;a<360;a+=2){g.fillStyle='hsl('+a+',90%,'+(isDark?55:52)+'%)';g.beginPath();g.moveTo(90,90);g.arc(90,90,70,a*Math.PI/180,(a+2.5)*Math.PI/180);g.fill();}
+    g.fillStyle=css('--panel');g.beginPath();g.arc(90,90,40,0,6.2832);g.fill();
+    g.fillStyle=css('--ink');g.font='600 15px JetBrains Mono, monospace';g.textAlign='center';g.textBaseline='middle';
+    [[0,0],[1,90],[2,180],[3,270]].forEach(([k,a])=>{const r=55,rad=a*Math.PI/180;g.fillText(k,90+r*Math.cos(rad),90+r*Math.sin(rad));});
+  }
+
+  const sIn=document.getElementById('s'),sV=document.getElementById('sV'),tcIn=document.getElementById('tc'),tcV=document.getElementById('tcV');
+  sIn.addEventListener('input',()=>{s=+sIn.value;sV.textContent=s;rebuild();});
+  tcIn.addEventListener('input',()=>{tcut=+tcIn.value;tcV.textContent=tcut;center();});
+  const one=document.getElementById('one'),tw=document.getElementById('two');
+  one.addEventListener('click',()=>{two=false;one.setAttribute('aria-pressed','true');tw.setAttribute('aria-pressed','false');rebuild();shown=reduce?T:0;});
+  tw.addEventListener('click',()=>{two=true;tw.setAttribute('aria-pressed','true');one.setAttribute('aria-pressed','false');rebuild();shown=reduce?T:0;});
+  const playBtn=document.getElementById('play');
+  playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?'一時停止':'再生';});
+  playBtn.textContent=playing?'一時停止':'再生';
+
+  function frame(now){
+    if(playing){if(shown<T&&now-last>70){shown++;last=now;}else if(shown>=T&&now-last>3000){shown=0;last=now;}}
+    draw();requestAnimationFrame(frame);
+  }
+  resize();rebuild();drawWheel();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawWheel);
+  requestAnimationFrame(frame);
+})();
+</script>

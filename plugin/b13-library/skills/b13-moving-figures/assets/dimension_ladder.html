@@ -1,0 +1,234 @@
+<title>点から600胞体の先へ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 左に次元が一つずつ開く図、右に梯子の表と逆転スイッチ */
+:root{
+  --bg:#eceff4; --panel:#f8f9fb; --ink:#1b2333; --muted:#5d6779; --line:#cfd5df; --accent:#3b5bdb;
+  --f-disp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e131d;--panel:#151c29;--ink:#e3e8f1;--muted:#97a1b3;--line:#2a3446;--accent:#8ea6ff;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.7;margin:0;padding-inline:16px;padding-block:24px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(1.6rem,4vw,2.4rem);line-height:1.25;margin:0;text-wrap:balance}
+.sub{font-family:var(--f-mono);color:var(--muted)}
+.lead{max-width:62ch;margin:0}
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;aspect-ratio:1/1;display:block;touch-action:none;cursor:grab}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font-family:var(--f-body);font-size:.9rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.side{display:grid;gap:18px;min-width:0}
+.box{display:grid;gap:6px}
+.box h2{font-family:var(--f-disp);font-weight:600;font-size:1.05rem;margin:0}
+.box p{margin:0;font-size:.88rem;color:var(--muted)}
+.now{font-family:var(--f-disp);font-weight:800;font-size:1.7rem;line-height:1.3}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;font-family:var(--f-mono);font-size:.82rem;font-variant-numeric:tabular-nums;width:100%}
+th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child,td:nth-child(2){text-align:left}
+th{color:var(--muted);font-weight:400}
+tr.cur td{background:var(--line)}
+tr{cursor:pointer}
+.note{font-size:.8rem;color:var(--muted);max-width:70ch;margin:0;border-top:1px solid var(--line);padding-top:12px}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <h1>点から600胞体の先へ</h1>
+    <div class="sub">潰れていた軸が一本ずつ開く。逆転スイッチは φ と −1/φ を入れ替える</div>
+  </header>
+  <p class="lead">点を二つ並べると線分、線分の上に潰れていた五つの点が開くと五角形、その奥行きが開くと正二十面体、四本目の軸が開くと600胞体になる。最後に600胞体の φ 倍がもう一つ外へ育ち、240 個の点になる。各段で逆転スイッチを入れると、座標の φ がすべて −1/φ に置き換わり、五角形は五芒星へ、外側と内側の600胞体は入れ替わる。</p>
+
+  <div class="main">
+    <section class="stage">
+      <canvas id="cv" aria-label="次元が一つずつ開いていく図形"></canvas>
+      <div class="ctrl">
+        <button id="play" type="button">一時停止</button>
+        <button id="prev" type="button">前の段</button>
+        <button id="next" type="button">次の段</button>
+        <button id="flip" type="button" aria-pressed="false">逆転スイッチ</button>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="box">
+        <h2>いまの段</h2>
+        <div class="now" id="now"></div>
+        <p id="nowp"></p>
+      </div>
+      <div class="box">
+        <h2>梯子</h2>
+        <div class="tbl"><table id="ladder"></table></div>
+        <p>点と辺の数は、ページの中で座標を整数の組 (a, b) = a + bφ として作り、辺の長さの二乗が決まった値に等しい組を数えて出している。</p>
+      </div>
+    </aside>
+  </div>
+  <p class="note">座標はすべて a + bφ の形の整数の組で持ち、逆転は (a, b) → (a + b, −b) という整数の置き換えでしている。五角形だけは5本の整数の軸の上の点として持ち、逆転は軸の番号 k を 2k に送る置き換え。4次元から画面へ落とす回転と遠近、段の間の滑らかな動きは表示のためだけに実数で描いている。最後の段の「二つの600胞体」は、E₈ の240個を4次元に落とすと半径 1 と φ の600胞体が二つ出るという既知の対応に合わせて、ここでは600胞体とその φ 倍を直接並べたもの。E₈ から射影して数え直してはいない。</p>
+</div>
+
+<script>
+(function(){
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const PHI=(1+Math.sqrt(5))/2;
+  // Z[φ] の整数の組
+  const add=(p,q)=>[p[0]+q[0],p[1]+q[1]];
+  const neg=p=>[-p[0],-p[1]];
+  const mul=(p,q)=>[p[0]*q[0]+p[1]*q[1], p[0]*q[1]+p[1]*q[0]+p[1]*q[1]];
+  const conj=p=>[p[0]+p[1],-p[1]];
+  const eq=(p,q)=>p[0]===q[0]&&p[1]===q[1];
+  const val=p=>p[0]+p[1]*PHI;                                   // 画面へ出すときだけ
+  const Z=[0,0],ONE=[1,0],TWO=[2,0],F=[0,1],FI=[-1,1];          // FI = φ − 1 = 1/φ
+  function d2(u,v){let s=[0,0];for(let i=0;i<u.length;i++){const d=add(u[i],neg(v[i]));s=add(s,mul(d,d));}return s;}
+  function edgesOf(V,target){const E=[];for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++)if(eq(d2(V[i],V[j]),target))E.push([i,j]);return E;}
+
+  // 正二十面体（2倍した座標）：(0, ±2, ±2φ) の巡回
+  const ico=[];
+  for(const s1 of [1,-1])for(const s2 of [1,-1]){
+    const a=[s1*2,0],b=[0,s2*2];
+    ico.push([Z,a,b],[b,Z,a],[a,b,Z]);
+  }
+  // 600胞体（2倍した座標）
+  const c600=[];
+  for(let i=0;i<4;i++)for(const s of [1,-1]){const v=[Z,Z,Z,Z];v[i]=[2*s,0];c600.push(v);}
+  for(const a of [1,-1])for(const b of [1,-1])for(const c of [1,-1])for(const d of [1,-1])c600.push([[a,0],[b,0],[c,0],[d,0]]);
+  const evenPerms=[[0,1,2,3],[0,2,3,1],[0,3,1,2],[1,0,3,2],[1,2,0,3],[1,3,2,0],[2,0,1,3],[2,1,3,0],[2,3,0,1],[3,0,2,1],[3,1,0,2],[3,2,1,0]];
+  for(const s1 of [1,-1])for(const s2 of [1,-1])for(const s3 of [1,-1]){
+    const base=[Z,[s1,0],[0,s2],[-s3,s3]];                        // (0, ±1, ±φ, ±1/φ)
+    for(const pm of evenPerms){const v=[];for(let k=0;k<4;k++)v[pm[k]]=base[k];c600.push(v);}
+  }
+  const big=c600.map(v=>v.map(x=>mul(x,F)));                     // φ 倍
+  const E600=edgesOf(c600,[8,-4]);                                // 辺の長さの二乗 4(2 − φ)
+  const Ebig=edgesOf(big,[4,0]);
+  const Eico=edgesOf(ico,[16,0]);
+
+  // 画面用の座標（元と逆転）
+  function rotToZ(v){ // (0,1,φ) 方向を z 軸へ
+    const n=Math.hypot(0,1,PHI),a=[0,1/n,PHI/n];
+    const ax=[a[1],-a[0],0],s=Math.hypot(...ax),c=a[2];
+    const k=[ax[0]/s,ax[1]/s,0];
+    const dot=k[0]*v[0]+k[1]*v[1]+k[2]*v[2];
+    const cr=[k[1]*v[2]-k[2]*v[1],k[2]*v[0]-k[0]*v[2],k[0]*v[1]-k[1]*v[0]];
+    return [0,1,2].map(i=>v[i]*c+cr[i]*s+k[i]*dot*(1-c));
+  }
+  const pentPos=k=>[Math.cos(2*Math.PI*k/5),Math.sin(2*Math.PI*k/5),0,0];
+  const stages=[
+    {name:'点',dim:0,info:'何もない一点。ここから始める。',
+      P:[[0,0,0,0]],C:[[0,0,0,0]],E:[],hue:()=>40,axis:-1,R:1},
+    {name:'線分',dim:1,info:'単位を二つ並べる。潰れていた x 軸が開き、点が二つに分かれる。',
+      P:[[1,0,0,0],[-1,0,0,0]],C:[[1,0,0,0],[-1,0,0,0]],E:[[0,1]],hue:i=>i?200:20,axis:0,R:1},
+    {name:'五角形',dim:2,info:'線の上に潰れていた五つの点が y 軸へ開く。逆転で五芒星になる。',
+      P:[0,1,2,3,4].map(pentPos),C:[0,1,2,3,4].map(k=>pentPos((2*k)%5)),E:[[0,1],[1,2],[2,3],[3,4],[4,0]],hue:i=>i*72,axis:1,R:1},
+    {name:'正二十面体',dim:3,info:'五回軸の向きに潰れていた奥行きが開く。逆転で星形の二十面体になる。',
+      ...three(ico,Eico),axis:2,R:1},
+    {name:'600胞体',dim:4,info:'四本目の軸 w が開く。w の高さで九枚の殻に分かれ、色はその殻ごと。',
+      ...four([c600],[E600],2),axis:3,R:1},
+    {name:'600胞体の先',dim:4,info:'600胞体の φ 倍がもう一つ外へ育つ。逆転で外と内が入れ替わる。',
+      ...four([c600,big],[E600,Ebig],2),axis:4,R:PHI},
+  ];
+  function three(V,E){
+    const r=Math.sqrt(4+4*PHI*PHI);
+    const P=V.map(v=>{const q=rotToZ(v.map(val));return [q[0]/r,q[1]/r,q[2]/r,0];});
+    const C=V.map(v=>{const q=rotToZ(v.map(x=>val(conj(x))));return [q[0]/r,q[1]/r,q[2]/r,0];});
+    const zs=P.map(p=>Math.round(p[2]*1000));const lv=[...new Set(zs)].sort((a,b)=>a-b);
+    return {P,C,E,hue:i=>lv.indexOf(zs[i])*90,cnt:V.length};
+  }
+  function four(Vs,Es,sc){
+    const P=[],C=[],E=[],H=[],copy=[];let off=0;
+    Vs.forEach((V,ci)=>{
+      V.forEach(v=>{P.push(v.map(x=>val(x)/sc));C.push(v.map(x=>val(conj(x))/sc));
+        const w=val(c600[P.length-1-off][3]);H.push(Math.round((w+2)*1000));copy.push(ci);});
+      Es[ci].forEach(([i,j])=>E.push([i+off,j+off]));off+=V.length;
+    });
+    const lv=[...new Set(H)].sort((a,b)=>a-b);
+    return {P,C,E,hue:i=>lv.indexOf(H[i])*36+(copy[i]?180:0),copy};
+  }
+
+  // 梯子の表
+  const ladder=document.getElementById('ladder');
+  function table(){
+    ladder.innerHTML='<tr><th>段</th><th>形</th><th>次元</th><th>点</th><th>辺</th></tr>'+stages.map((s,i)=>
+      '<tr id="row'+i+'" class="'+(i===st?'cur':'')+'"><td>'+i+'</td><td>'+s.name+'</td><td>'+s.dim+'</td><td>'+s.P.length+'</td><td>'+s.E.length+'</td></tr>').join('');
+    stages.forEach((_,i)=>document.getElementById('row'+i).addEventListener('click',()=>go(i)));
+  }
+
+  let st=0,open=reduce?1:0,flip=0,flipT=0,playing=!reduce,phase=0,t0=performance.now(),yaw=0.5,pitch=0.35,drag=null;
+  function go(i){st=Math.max(0,Math.min(stages.length-1,i));open=reduce?1:0;phase=0;t0=performance.now();flipT=0;setFlip(0);
+    document.getElementById('now').textContent=stages[st].name;document.getElementById('nowp').textContent=stages[st].info;table();}
+  const flipBtn=document.getElementById('flip');
+  function setFlip(v){flipT=v;flipBtn.setAttribute('aria-pressed',v?'true':'false');}
+  flipBtn.addEventListener('click',()=>setFlip(flipT?0:1));
+  document.getElementById('next').addEventListener('click',()=>go(st+1));
+  document.getElementById('prev').addEventListener('click',()=>go(st-1));
+  const playBtn=document.getElementById('play');
+  playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?'一時停止':'再生';});
+  playBtn.textContent=playing?'一時停止':'再生';
+
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  function resize(){const d=window.devicePixelRatio||1;cv.width=Math.round(cv.clientWidth*d);cv.height=Math.round(cv.clientWidth*d);}
+  window.addEventListener('resize',resize);resize();
+  cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY,yaw,pitch];cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;yaw=drag[2]+(e.clientX-drag[0])*0.01;pitch=Math.max(-1.4,Math.min(1.4,drag[3]+(e.clientY-drag[1])*0.01));});
+  cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('pointercancel',()=>drag=null);
+
+  const ease=t=>t<=0?0:t>=1?1:(1-Math.cos(Math.PI*t))/2;
+  let a4=0;
+  function frame(now){
+    const el=(now-t0)/1000;
+    if(!reduce){
+      open=ease((el-0.3)/2.2);
+      if(playing){
+        // 自動：開く → 逆転 → 戻す → 次の段
+        if(el>4.5&&el<4.6&&flipT===0&&st>=2)setFlip(1);
+        if(el>7.5&&el<7.6&&flipT===1)setFlip(0);
+        if(el>(st>=2?10:4.2))go(st===stages.length-1?0:st+1);
+      }
+      if(!drag)yaw+=0.004;
+      a4+=0.004;
+    }
+    flip+=(flipT-flip)*(reduce?1:0.06);
+    const s=stages[st],W=cv.width,H=cv.height,dpr=window.devicePixelRatio||1;
+    ctx.clearRect(0,0,W,H);
+    const dark=getComputedStyle(document.documentElement).colorScheme==='dark';
+    const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const ca=Math.cos(a4),sa=Math.sin(a4),cb=Math.cos(a4*0.7),sb=Math.sin(a4*0.7);
+    const scale=W*0.36/(st===5?PHI*1.05:1);
+    const pts=s.P.map((p,i)=>{
+      let v=[0,1,2,3].map(k=>p[k]+(s.C[i][k]-p[k])*flip);
+      // 開く軸
+      if(s.axis>=0&&s.axis<4)v[s.axis]*=open;
+      if(s.axis===4&&s.copy&&s.copy[i]===1){const f=1/PHI+(1-1/PHI)*open;v=v.map(x=>x*f);}  // 600胞体に重なった位置から φ 倍へ育つ
+      if(s.dim===4){ // 4次元の回転と遠近
+        const x=ca*v[0]-sa*v[3],w=sa*v[0]+ca*v[3],y=cb*v[1]-sb*v[2],z=sb*v[1]+cb*v[2];
+        const f=3/(3-w*0.9);v=[x*f,y*f,z*f,w];
+      }
+      const X=cy*v[0]+sy*v[2],Z0=-sy*v[0]+cy*v[2];
+      const Y=cp*v[1]-sp*Z0,Zd=sp*v[1]+cp*Z0;
+      const f=4/(4+Zd);
+      return [W/2+X*scale*f,H/2-Y*scale*f,Zd,f,s.hue(i)];
+    });
+    const L=dark?62:46;
+    ctx.lineWidth=(s.dim===4?0.8:1.8)*dpr;
+    for(const [i,j] of s.E){
+      const a=pts[i],b=pts[j];const dep=(a[2]+b[2])/2;
+      const al=s.dim===4?(0.18+0.25*(1-(dep+1.5)/3)):0.85;
+      ctx.strokeStyle='hsla('+((a[4]+b[4])/2).toFixed(0)+',80%,'+L+'%,'+Math.max(0.08,al).toFixed(2)+')';
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+    }
+    const order=pts.map((p,i)=>i).sort((a,b)=>pts[b][2]-pts[a][2]);
+    for(const i of order){const p=pts[i];
+      ctx.fillStyle='hsl('+p[4]+',85%,'+L+'%)';
+      ctx.beginPath();ctx.arc(p[0],p[1],(s.dim===4?2.8:6)*p[3]*dpr,0,6.2832);ctx.fill();}
+    requestAnimationFrame(frame);
+  }
+  go(0);
+  requestAnimationFrame(frame);
+})();
+</script>

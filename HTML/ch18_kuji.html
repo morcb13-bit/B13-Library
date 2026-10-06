@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>くじで数える</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：整数のくじ（x[n] = x[n−24] + x[n−55] の下 31 桁）で玉を落とし、着地をパスカルの三角形と並べる。下：並べ替えの判定 */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>くじで数える</h1>
+    <p class="lead">くじは x[n] = x[n − 24] + x[n − 55] の下の 31 桁だけを残して作ります。足し算と桁の切り捨てだけです。そのくじで一段ごとに左右を決めて玉を落とすと、着地の個数はパスカルの三角形の段に寄っていきます。下の段では、二つの組の差を、名札をくじで入れ替えたときの差と比べます。</p>
+  </header>
+
+  <section class="box" aria-label="玉を落とす">
+    <h2>くじで玉を落とす（12 段）</h2>
+    <canvas id="cvA" width="1400" height="720"></canvas>
+    <div class="presets" id="pre"></div>
+    <div class="eq"><div>落とした玉 <b id="vb">0</b></div><div>いちばん多い箱 <b id="vm">―</b></div><div>くじの最新の値 <b id="vk">―</b></div></div>
+    <div class="legend"><span><i style="background:var(--pos)"></i>着地の個数</span><span><i style="background:var(--ink)"></i>三角形の段 × 玉の数 ÷ 2¹²（作図用）</span></div>
+    <p class="note">一段ごとにくじを一つ引き、いちばん上の桁が 1 なら右、0 なら左へ進みます。「5 通りのうち 3 通りで右」では、0〜4 の整数を引いて 0, 1, 2 なら右です。着地の個数は整数で数え、三角形の線は比べるための作図用の小数です。</p>
+  </section>
+
+  <section class="box" aria-label="並べ替えの判定">
+    <h2>並べ替えの判定</h2>
+    <canvas id="cvB" width="1400" height="560"></canvas>
+    <div class="presets" id="preB"></div>
+    <div class="eq"><div>実測の差 <b id="vo">―</b></div><div>入れ替えた回数 <b id="vt">0</b></div><div>実測以上の差が出た回数 <b id="vh">0</b></div></div>
+    <p class="note">上の二列は、二つの組の玉の着地位置（各 60 個）です。差は |組1の和 × 組0の個数 − 組0の和 × 組1の個数| で、割り算を使いません。名札（組 0 か組 1 か）だけをくじで入れ替えて差を出し直し、下の棒に積みます。赤い線が実測の差です。実測以上の差がめったに出なければ、組の違いは名札の付け方では作れない、と読みます。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  // ---------------- 整数のくじ
+  class Kuji {
+    constructor(seed = 0) { const M = 0x7fffffff; let a = 1, b = 1; for (let i = 0; i < seed; i++) [a, b] = [b, (a + b) & M];
+      this.x = []; for (let i = 0; i < 55; i++) { this.x.push(a); [a, b] = [b, (a + b) & M]; } this.i = 0; for (let i = 0; i < 1000; i++) this.next(); }
+    next() { const j = this.i, v = (this.x[(j + 31) % 55] + this.x[j]) & 0x7fffffff; this.x[j] = v; this.i = (j + 1) % 55; this.last = v; return v; }
+    bit() { return (this.next() >>> 30) & 1; }
+    below(m) { let k = 1; while ((1 << k) < m) k++; for (;;) { const v = this.next() >>> (31 - k); if (v < m) return v; } }
+  }
+  const N = 12, row = (() => { let r = [1]; for (let i = 0; i < N; i++) r = [1, ...r.slice(1).map((v, k) => v + r[k]), 1]; return r; })();
+  // ---------------- 上：玉
+  const PRE = [['左右半々', [1, 2]], ['5 通りのうち 3 通りで右', [3, 5]]];
+  let sel = 0, K = new Kuji(), land = Array(N + 1).fill(0), balls = 0, flying = [];
+  const reset = () => { K = new Kuji(); land = Array(N + 1).fill(0); balls = 0; flying = []; };
+  const step = ([p, q]) => q === 2 ? K.bit() : (K.below(q) < p ? 1 : 0);
+  function launch() { const path = [0]; for (let i = 0; i < N; i++) path.push(path.at(-1) + step(PRE[sel][1])); flying.push({ path, t: 0 }); }
+  const cA = document.getElementById('cvA'), gA = cA.getContext('2d');
+  function drawA() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), glow = css('--glow');
+    gA.clearRect(0, 0, cA.width, cA.height);
+    const W = cA.width, cx = W / 2, top = 40, dy = 24, dx = 46;
+    // くぎ
+    gA.fillStyle = rule; for (let r = 0; r < N; r++) for (let k = 0; k <= r; k++) { gA.beginPath(); gA.arc(cx + (k - r / 2) * dx, top + r * dy, 5, 0, 7); gA.fill(); }
+    // 箱
+    const base = 700, bw = dx - 6, mx = Math.max(1, ...land, ...row.map(v => v * balls / 4096));
+    const H = 330;
+    for (let k = 0; k <= N; k++) { const x = cx + (k - N / 2) * dx; const h = land[k] / mx * H; gA.fillStyle = pos; gA.globalAlpha = .75; gA.fillRect(x - bw / 2, base - h, bw, h); gA.globalAlpha = 1;
+      gA.fillStyle = muted; gA.font = font(500, 16, 'm'); gA.textAlign = 'center'; gA.fillText(land[k], x, base - h - 8); }
+    gA.strokeStyle = ink; gA.lineWidth = 3; gA.beginPath();
+    for (let k = 0; k <= N; k++) { const x = cx + (k - N / 2) * dx, y = base - row[k] * balls / 4096 / mx * H; k ? gA.lineTo(x, y) : gA.moveTo(x, y); } if (balls) gA.stroke();
+    gA.strokeStyle = rule; gA.lineWidth = 2; gA.beginPath(); gA.moveTo(cx - (N / 2 + 1) * dx, base); gA.lineTo(cx + (N / 2 + 1) * dx, base); gA.stroke();
+    // 落ちている玉
+    flying.forEach(f => { const r = Math.min(N, Math.floor(f.t)), fr = f.t - r, k0 = f.path[r] - r / 2, k1 = r < N ? f.path[r + 1] - (r + 1) / 2 : k0;
+      const x = cx + (k0 + (k1 - k0) * fr) * dx, y = top + (r + fr) * dy - 14; gA.fillStyle = glow; gA.beginPath(); gA.arc(x, Math.min(y, base - 20), 9, 0, 7); gA.fill(); });
+    document.getElementById('vb').textContent = balls; const m = land.indexOf(Math.max(...land)); document.getElementById('vm').textContent = balls ? `${m} 番（${land[m]} 個）` : '―';
+    document.getElementById('vk').textContent = K.last ?? '―';
+  }
+  PRE.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { sel = i; reset(); mark(); if (!playing) bulk(2048); drawA(); }; document.getElementById('pre').append(b); });
+  const mark = () => document.querySelectorAll('#pre button').forEach((b, i) => b.classList.toggle('on', i === sel));
+  function bulk(n) { for (let i = 0; i < n; i++) { let p = 0; for (let j = 0; j < N; j++) p += step(PRE[sel][1]); land[p]++; balls++; } }
+
+  // ---------------- 下：並べ替えの判定
+  const positions = (k, n, right) => Array.from({ length: n }, () => { let p = 0; for (let j = 0; j < 10; j++) p += right[1] === 2 ? k.bit() : (k.below(right[1]) < right[0] ? 1 : 0); return p; });
+  const gap = (vals, labs) => { let s0 = 0, s1 = 0, n0 = 0, n1 = 0; vals.forEach((v, i) => labs[i] ? (s1 += v, n1++) : (s0 += v, n0++)); return Math.abs(s1 * n0 - s0 * n1); };
+  const PB = [['半々 と 3/5 右', [3, 5]], ['半々 と 半々（負の対照）', [1, 2]]];
+  let selB = 0, KB, vals, labs, obs, gaps = [], hits = 0;
+  function buildB() { KB = new Kuji(7); const a = positions(KB, 60, [1, 2]); const b = positions(KB, 60, PB[selB][1]); vals = a.concat(b); labs = Array(60).fill(0).concat(Array(60).fill(1)); obs = gap(vals, labs); gaps = []; hits = 0; }
+  function shuffleOnce() { const l = labs.slice(); for (let i = l.length - 1; i > 0; i--) { const j = KB.below(i + 1); [l[i], l[j]] = [l[j], l[i]]; } const g = gap(vals, l); gaps.push(g); if (g >= obs) hits++; }
+  const cB = document.getElementById('cvB'), gB = cB.getContext('2d');
+  function drawB() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    gB.clearRect(0, 0, cB.width, cB.height);
+    // 二列の玉
+    const x0 = 140, sx = 100;
+    [[0, '組 0'], [1, '組 1']].forEach(([g, t], gi) => { const y = 40 + gi * 80; gB.fillStyle = muted; gB.font = font(700, 22); gB.textAlign = 'right'; gB.fillText(t, x0 - 20, y + 8);
+      const cnt = Array(11).fill(0); vals.forEach((v, i) => { if (labs[i] !== g) return; const c = cnt[v]++; gB.fillStyle = g ? neg : pos; gB.beginPath(); gB.arc(x0 + v * sx + (c % 8) * 10 - 35, y - 18 + Math.floor(c / 8) * 10, 4.5, 0, 7); gB.fill(); });
+      gB.strokeStyle = rule; gB.lineWidth = 1; gB.beginPath(); gB.moveTo(x0 - 40, y + 30); gB.lineTo(x0 + 10 * sx + 40, y + 30); gB.stroke(); });
+    gB.fillStyle = muted; gB.font = font(500, 16, 'm'); gB.textAlign = 'center'; for (let v = 0; v <= 10; v++) gB.fillText(v, x0 + v * sx, 196);
+    // 差の棒
+    const base = 520, maxg = Math.max(obs, ...gaps, 1) * 1.08, nb = 40, bins = Array(nb).fill(0);
+    gaps.forEach(g => bins[Math.min(nb - 1, Math.floor(g / maxg * nb))]++);
+    const bm = Math.max(1, ...bins), bw = (W2 => W2 / nb)(1200);
+    bins.forEach((c, i) => { const h = c / bm * 260; gB.fillStyle = ink; gB.globalAlpha = .55; gB.fillRect(100 + i * bw + 2, base - h, bw - 4, h); gB.globalAlpha = 1; });
+    const ox = 100 + obs / maxg * 1200; gB.strokeStyle = neg; gB.lineWidth = 4; gB.beginPath(); gB.moveTo(ox, base - 290); gB.lineTo(ox, base + 4); gB.stroke();
+    gB.fillStyle = neg; gB.font = font(700, 20); gB.textAlign = ox > 1100 ? 'right' : 'left'; gB.fillText(`実測 ${obs}`, ox + (ox > 1100 ? -10 : 10), base - 270);
+    gB.strokeStyle = rule; gB.lineWidth = 2; gB.beginPath(); gB.moveTo(100, base); gB.lineTo(1300, base); gB.stroke();
+    gB.fillStyle = muted; gB.font = font(500, 18, 'm'); gB.textAlign = 'left'; gB.fillText('0', 100, base + 26); gB.textAlign = 'right'; gB.fillText(String(Math.round(maxg)), 1300, base + 26); gB.textAlign = 'center'; gB.fillText('入れ替えたときの差', 700, base + 26);
+    document.getElementById('vo').textContent = obs; document.getElementById('vt').textContent = gaps.length; document.getElementById('vh').textContent = `${hits}/${gaps.length}`;
+  }
+  PB.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { selB = i; buildB(); if (!playing) for (let j = 0; j < 200; j++) shuffleOnce(); markB(); drawB(); }; document.getElementById('preB').append(b); });
+  const markB = () => document.querySelectorAll('#preB button').forEach((b, i) => b.classList.toggle('on', i === selB));
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0, accB = 0, holdB = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  mark(); buildB(); markB();
+  if (!playing) { bulk(2048); for (let j = 0; j < 200; j++) shuffleOnce(); }
+  drawA(); drawB(); setPlay(playing);
+  function loop(tm) { const dt = Math.min(0.1, (tm - last) / 1000); last = tm;
+    if (playing) {
+      acc += dt * 14; while (acc >= 1) { acc -= 1; launch(); }
+      flying.forEach(f => f.t += dt * 9); flying = flying.filter(f => { if (f.t >= N + 0.9) { land[f.path[N]]++; balls++; return false; } return true; });
+      if (balls >= 4096) { reset(); sel = (sel + 1) % PRE.length; mark(); }
+      accB += dt * 12; while (accB >= 1) { accB -= 1; if (gaps.length < 200) shuffleOnce(); else if (++holdB > 40) { holdB = 0; selB = (selB + 1) % PB.length; buildB(); markB(); } }
+      drawA(); drawB();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  window.__k = (() => { const k = new Kuji(); return Array.from({ length: 6 }, () => k.next()); })();
+  window.__pt = () => { const r = []; for (const s of [0, 1]) { selB = s; buildB(); for (let j = 0; j < 200; j++) shuffleOnce(); r.push([obs, hits]); } return r; };
+})();
+</script>
+
+</body>
+</html>

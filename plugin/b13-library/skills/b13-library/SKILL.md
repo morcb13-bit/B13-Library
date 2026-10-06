@@ -1,11 +1,11 @@
 ---
 name: b13-library
-description: B13 ライブラリ（本『Nature Knows Only Addition ― 動く図で読む足し算だけの数学 ―』のコード）で、整数と足し算と比較だけで計算するためのスキル。平衡13進・平衡5進・平衡φ進・Zeckendorf・3120番地の位相・足し算だけの四則・半加算器・計算尺・互除法・剰余・逆元・べき乗の剰余・平方剰余・ピサノ周期・篩・Z[φ]・ノルム・単数・φ倍・√n・連分数・ペル方程式・指数と対数・三角関数・虚数を使わない回転・双曲関数・双曲回転・π/e/φ/√5/ln2 の3120展開、と言われたとき、「足し算だけで計算して」「浮動小数を使わずに」「B13ライブラリで」「本の第N章のコード」と頼まれたとき、またはB13の記事や本の実行例・数値を出すときに使う。
+description: B13 ライブラリ（本『Nature Knows Only Addition ― 動く図で読む足し算だけの数学 ―』のコード）で、整数と足し算と比較だけで計算するためのスキル。平衡13進・平衡5進・平衡φ進・Zeckendorf・3120番地の位相・足し算だけの四則・半加算器・計算尺・互除法・剰余・逆元・べき乗の剰余・平方剰余・ピサノ周期・篩・Z[φ]・ノルム・単数・φ倍・√n・連分数・ペル方程式・指数と対数・三角関数・虚数を使わない回転・双曲関数・双曲回転・π/e/φ/√5/ln2 の3120展開・差分と和（微分と積分）・パスカルの三角形・五角数・漸化式・畳み込み・φ-NTT・coneFFT・四元数・イコシアン・600胞体・整数のくじ・並べ替えの判定・波のスリット・二分法・フィボナッチ探索・最短路（アメーバ）、と言われたとき、「足し算だけで計算して」「浮動小数を使わずに」「B13ライブラリで」「本の第N章のコード」と頼まれたとき、またはB13の記事や本の実行例・数値を出すときに使う。
 ---
 
 # B13 ライブラリ
 
-本『Nature Knows Only Addition ― 動く図で読む足し算だけの数学 ―』の 13 章ぶんのコードを `scripts/` に、各章の本文を `references/` に置いてある。数値を出すときはここのコードを走らせて出す。暗算や浮動小数の電卓で出した数を本の数として書かない。
+本『Nature Knows Only Addition ― 動く図で読む足し算だけの数学 ―』の 19 章ぶんのコード（20 本）を `scripts/` に、各章の本文と付録を `references/` に置いてある。数値を出すときはここのコードを走らせて出す。暗算や浮動小数の電卓で出した数を本の数として書かない。
 
 ## 約束（必ず守る）
 
@@ -25,7 +25,7 @@ python3 b13_arith.py          # 各モジュールは単独で走らせると実
 python3 -c "from b13_zphi import norm; print(norm((5,1)))"
 ```
 
-- どのモジュールも `b13_balanced.py`（平衡N進の add / neg / sign）を土台に組んである。同じディレクトリから走らせる。
+- 第1〜13章のモジュールは `b13_balanced.py`（平衡N進の add / neg / sign）を土台に組んである。第14章以降は前の章のモジュールを読み込むもの（`b13_diffsum`・`b13_search` は `b13_explog`、`b13_wave` は `b13_trig`・`b13_explog`・`b13_count`、`b13_search` は `b13_wave`）がある。どれも同じディレクトリから走らせる。
 - 実行例を本や記事に載せるときは、出力をそのまま貼る。丸めない。
 
 ## 章・コード・図の対応
@@ -46,8 +46,15 @@ python3 -c "from b13_zphi import norm; print(norm((5,1)))"
 | 11 | 三角関数・虚数を使わない回転 | b13_trig.py | tri_cos tri_sin pi_fx cos_sin_rad rotate quarter_turn | ch11_rotate |
 | 12 | 双曲関数と双曲回転 | b13_hyper.py | cosh_sinh boost turn phi2 norm pell2 | ch12_hyperbolic |
 | 13 | 定数 π・e・φ・√5・ln2 の3120展開 | b13_constants.py | expand3120 rebuild nearest_div | ch13_constants_3120 |
+| 14 | 差分と和（微分と積分） | b13_diffsum.py | diff accum table heads rebuild pascal pow2 fib square_slope pentagonal columns | ch14_diff_sum |
+| 15 | 漸化式と畳み込み | b13_recur.py | seq form disc kind period zmul zperiod zform conv unroll carry | ch15_recur_conv |
+| 16 | φ-NTT と coneFFT | b13_phintt.py | addr forward inverse cyc_conv mult butterfly forward_B inverse_B cf_conv mult_B | ch16_phi_ntt |
+| 17 | 四元数とイコシアン | b13_quat.py | qmul conj norm order rotate hurwitz24 icosian120 closed | ch17_icosian |
+| 18 | 数える：パスカル・整数のくじ・並べ替えの判定 | b13_count.py・b13_wave.py | pascal_row diag_sums within_one Kuji drop gap shuffle perm_test／penrose_floor wave balls profile | ch18_wave_slit |
+| 19 | 探す：二分法と最短路（アメーバ） | b13_search.py | bisect_isqrt bisect_root fib_search bisect_search hops scent climb | ch19_amoeba |
+| 付録 | 関数の索引と在処の表 | ― | ― | ― |
 
-章の本文は `references/` の同名ファイル（intro.md, ch01-balanced.md … ch13-constants.md）。各章は「B13 の言葉で → 動く図 → コード → 実行例 → 在処」の順で書いてある。新しい章や記事を書くときもこの順に揃える。
+章の本文は `references/` の同名ファイル（intro.md, ch01-balanced.md … ch19-search.md、付録は appendix.md）。関数がどの章のどのファイルにあるかは appendix.md の索引で引ける。各章は「B13 の言葉で → 動く図 → コード → 実行例 → 在処」の順で書いてある。新しい章や記事を書くときもこの順に揃える。
 
 ## 使い方の手順
 

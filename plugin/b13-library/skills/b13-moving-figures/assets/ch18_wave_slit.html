@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>点ではなく波で</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* ペンローズの床のスリット：玉（点）は二つの山を作り、整数の波は縞を作る。波の先頭が届いた刻は、最短の段数に沿って並ぶ（第19章への伏線） */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.row2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:10px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>点ではなく波で</h1>
+    <p class="lead">ペンローズの床（ひし形の頂点と辺）に壁を立て、スリットを開けます。左の列から玉を一つずつ放つと、玉はスリットの後ろに二つの山を作ります。同じ列から整数の波を送ると、波はスリットを抜けて広がり、幕の上に縞を作ります。玉の来ない真ん中が、波ではいちばん明るくなります。</p>
+  </header>
+
+  <section class="box" aria-label="スリット">
+    <div class="row2">
+      <canvas id="cv" width="1120" height="780" style="touch-action:none"></canvas>
+      <canvas id="pf" width="373" height="780"></canvas>
+    </div>
+    <div class="presets" id="what"></div>
+    <div class="presets" id="view"></div>
+    <div class="presets" id="slit"></div>
+    <div class="presets" id="floor"></div>
+    <div class="eq"><div>刻 <b id="vt">0</b></div><div id="vinfo">―</div></div>
+    <div class="legend" id="lg"></div>
+    <p class="note">波は番地ごとの整数 u を、一刻ごとに u_next = 2u − u_prev + (隣の u の和 − 隣の数 × u) ÷ 隣の数 と進めます（割り算は 0 へ向けて切り捨て）。源の列には 30 刻で一周する整数の cos（第11章の 3120 の表から）を入れ、床の縁では波を少しずつ吸い取ります。明るさは最後の 120 刻の u² の和です。玉はくじ（この章の Kuji）で「右へ進む隣」を一つずつ選んで進みます。番地の置き場所だけは作図用の小数です。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button><button id="again">最初から</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  const WX = 80, WY = 55, BAND = 16, SRC_X = -WX + BAND + 2, WALL_X = -WX + BAND + 12, SCREEN_X = 40, P = 30, K = 1000000, T = 480, AVG = 120;
+  const SRC = [1000000, 978147, 913545, 809016, 669130, 500000, 309016, 104528, -104528, -309016, -499999, -669130, -809016, -913545, -978147, -1000000, -978147, -913545, -809016, -669130, -500000, -309016, -104528, 104528, 309016, 499999, 669130, 809016, 913545, 978147];
+  const tq = (x, d) => (x >= 0 ? Math.floor(x / d) : -Math.floor(-x / d));
+  // ---------------- 床
+  function penrose() {
+    const PHI = (1 + Math.sqrt(5)) / 2; let tris = [];
+    for (let i = 0; i < 10; i++) { let b = [Math.cos((2 * i - 1) * Math.PI / 10), Math.sin((2 * i - 1) * Math.PI / 10)], c = [Math.cos((2 * i + 1) * Math.PI / 10), Math.sin((2 * i + 1) * Math.PI / 10)]; if (i % 2 === 0) [b, c] = [c, b]; tris.push([0, [0, 0], b, c]); }
+    for (let k = 0; k < 10; k++) { const out = []; for (const [col, A, B, C] of tris) { if (col === 0) { const Pp = [A[0] + (B[0] - A[0]) / PHI, A[1] + (B[1] - A[1]) / PHI]; out.push([0, C, Pp, B], [1, Pp, C, A]); } else { const Q = [B[0] + (A[0] - B[0]) / PHI, B[1] + (A[1] - B[1]) / PHI], R = [B[0] + (C[0] - B[0]) / PHI, B[1] + (C[1] - B[1]) / PHI]; out.push([1, R, C, A], [1, Q, R, B], [0, R, Q, A]); } } tris = out; }
+    const e = tris[0], s = 1 / Math.hypot(e[2][0] - e[1][0], e[2][1] - e[1][1]);
+    const idx = new Map(), X = [], Y = [], E = new Set();
+    const vid = p => { const k = Math.round(p[0] * s * 1e3) + ',' + Math.round(p[1] * s * 1e3); let i = idx.get(k); if (i === undefined) { i = X.length; idx.set(k, i); X.push(p[0] * s); Y.push(p[1] * s); } return i; };
+    const inside = p => Math.abs(p[0] * s) <= WX && Math.abs(p[1] * s) <= WY;
+    for (const [, A, B, C] of tris) for (const Q of [B, C]) if (inside(A) && inside(Q)) { const a = vid(A), b = vid(Q); E.add(Math.min(a, b) * 100000 + Math.max(a, b)); }
+    const adj = X.map(() => []); E.forEach(k => { const a = Math.floor(k / 100000), b = k % 100000; adj[a].push(b); adj[b].push(a); });
+    return { X, Y, adj };
+  }
+  function square() { const X = [], Y = [], idx = new Map(); for (let i = -WX; i <= WX; i++) for (let j = -WY; j <= WY; j++) { idx.set(i + ',' + j, X.length); X.push(i); Y.push(j); }
+    const adj = X.map(() => []); X.forEach((x, a) => { for (const [di, dj] of [[1, 0], [0, 1]]) { const b = idx.get((x + di) + ',' + (Y[a] + dj)); if (b !== undefined) { adj[a].push(b); adj[b].push(a); } } }); return { X, Y, adj }; }
+  const FLOORS = { pen: penrose(), sq: square() };
+  // ---------------- くじ（この章の Kuji と同じ）
+  class Kuji { constructor(seed = 0) { const M = 0x7fffffff; let a = 1, b = 1; for (let i = 0; i < seed; i++) [a, b] = [b, (a + b) & M]; this.x = []; for (let i = 0; i < 55; i++) { this.x.push(a); [a, b] = [b, (a + b) & M]; } this.i = 0; for (let i = 0; i < 1000; i++) this.next(); }
+    next() { const j = this.i, v = (this.x[(j + 31) % 55] + this.x[j]) & 0x7fffffff; this.x[j] = v; this.i = (j + 1) % 55; return v; }
+    below(m) { let k = 1; while ((1 << k) < m) k++; for (;;) { const v = this.next() >>> (31 - k); if (v < m) return v; } } }
+
+  // ---------------- 状態
+  let what = 'wave', slitsName = 'two', floorName = 'pen', view = 'now';
+  let F, n, deg, blocked, srcs, damp, u, p, bright, first, t, landY, kuji, right, flying;
+  function setup() {
+    F = FLOORS[floorName]; n = F.X.length; const { X, Y, adj } = F; deg = adj.map(a => a.length);
+    const sl = slitsName === 'two' ? [-14, 14] : [0];
+    blocked = X.map((x, v) => x >= WALL_X && x <= WALL_X + 1.6 && !sl.some(c => Math.abs(Y[v] - c) <= 1.3));
+    srcs = X.map((x, v) => v).filter(v => Math.abs(X[v] - SRC_X) < 0.8);
+    damp = X.map((x, v) => { const dd = Math.min(WX - Math.abs(x), WY - Math.abs(Y[v])); return dd >= BAND ? 0 : Math.floor((BAND - dd) ** 2 * 0.12) + 1; });
+    u = new Float64Array(n); p = new Float64Array(n); bright = new Float64Array(n); first = new Int32Array(n).fill(-1); t = 0;
+    kuji = new Kuji(3); landY = []; flying = [];
+    right = adj.map((a, v) => a.filter(w => X[w] > X[v]));
+    view = 'now';
+  }
+  function waveStep() {
+    if (t >= T) return; const { adj } = F; const nu = new Float64Array(n);
+    for (let v = 0; v < n; v++) { if (blocked[v]) continue; let L = -deg[v] * u[v]; for (const w of adj[v]) L += u[w];
+      let a = 2 * u[v] - p[v] + tq(L, deg[v]); if (damp[v]) a -= tq((u[v] - p[v]) * damp[v], 64); nu[v] = a; }
+    for (const v of srcs) nu[v] = SRC[t % P];
+    p = u; u = nu;
+    for (let v = 0; v < n; v++) { if (first[v] < 0 && Math.abs(u[v]) * 100 > K) first[v] = t; if (t >= T - AVG) bright[v] += u[v] * u[v]; }
+    t++; if (t === T) view = 'bright';
+  }
+  const okSrc = () => srcs.filter(v => Math.abs(F.Y[v]) <= WY - BAND);
+  function ballLaunch() { const ss = okSrc(); flying.push({ v: ss[kuji.below(ss.length)], trail: [] }); }
+  function ballStep(b) { const { X, Y, adj } = F; const nb = right[b.v].length ? right[b.v] : adj[b.v]; b.v = nb[kuji.below(nb.length)];
+    if (blocked[b.v] || Math.abs(Y[b.v]) > WY - BAND) return 'gone'; if (X[b.v] >= SCREEN_X) { landY.push(Y[b.v]); return 'land'; } return 'fly'; }
+
+  // ---------------- 描く
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), pf = document.getElementById('pf'), gp = pf.getContext('2d');
+  const sx = x => (x + WX) / (2 * WX) * cv.width, sy = y => (WY - y) / (2 * WY) * cv.height;
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow'), bg = css('--panel');
+    const { X, Y } = F; g.fillStyle = bg; g.fillRect(0, 0, cv.width, cv.height);
+    const r = floorName === 'pen' ? 3.2 : 3.4;
+    if (what === 'wave') {
+      let mx = 1; if (view === 'bright') { for (let v = 0; v < n; v++) if (X[v] > WALL_X + 12 && !damp[v]) mx = Math.max(mx, bright[v]); }
+      else if (view === 'front') { mx = T; }
+      for (let v = 0; v < n; v++) {
+        let col, a;
+        if (blocked[v]) { g.fillStyle = ink; g.fillRect(sx(X[v]) - r, sy(Y[v]) - r, 2 * r, 2 * r); continue; }
+        if (view === 'now') { const q = Math.max(-1, Math.min(1, u[v] / K * 2.5)); if (Math.abs(q) < 0.04) continue; col = q > 0 ? pos : neg; a = Math.abs(q); }
+        else if (view === 'bright') { a = Math.min(1, Math.sqrt(bright[v] / mx) * 1.3); if (a < 0.05) continue; col = glow; }
+        else { if (first[v] < 0) continue; const k = first[v] % 20; col = k < 10 ? pos : neg; a = 0.25 + 0.6 * (1 - first[v] / T); }
+        g.globalAlpha = a; g.fillStyle = col; g.fillRect(sx(X[v]) - r, sy(Y[v]) - r, 2 * r, 2 * r);
+      }
+      g.globalAlpha = 1;
+    } else {
+      g.fillStyle = rule; for (let v = 0; v < n; v++) if (!blocked[v]) g.fillRect(sx(X[v]) - 1, sy(Y[v]) - 1, 2, 2);
+      g.fillStyle = ink; for (let v = 0; v < n; v++) if (blocked[v]) g.fillRect(sx(X[v]) - r, sy(Y[v]) - r, 2 * r, 2 * r);
+      flying.forEach(b => { g.fillStyle = glow; g.beginPath(); g.arc(sx(X[b.v]), sy(Y[b.v]), 6, 0, 7); g.fill(); });
+    }
+    // 源・幕
+    g.strokeStyle = muted; g.setLineDash([8, 8]); g.lineWidth = 2; g.beginPath(); g.moveTo(sx(SCREEN_X), sy(WY - BAND)); g.lineTo(sx(SCREEN_X), sy(-WY + BAND)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = muted; g.font = font(700, 22); g.textAlign = 'center'; g.fillText('源', sx(SRC_X), sy(WY - BAND) - 10); g.fillText('壁', sx(WALL_X), sy(WY - BAND) - 10); g.fillText('幕', sx(SCREEN_X), sy(WY - BAND) - 10);
+    // 幕の上の分布（縦 4 ずつ）
+    gp.fillStyle = bg; gp.fillRect(0, 0, pf.width, pf.height);
+    const bins = {}, cnt = {};
+    if (what === 'wave') { for (let v = 0; v < n; v++) if (X[v] >= SCREEN_X - 2 && X[v] <= SCREEN_X + 2) { const k = Math.floor(Y[v] / 4); bins[k] = (bins[k] || 0) + (t >= T - AVG ? bright[v] : u[v] * u[v]); cnt[k] = (cnt[k] || 0) + 1; } }
+    else landY.forEach(y => { const k = Math.floor(y / 4); bins[k] = (bins[k] || 0) + 1; cnt[k] = 1; });
+    const ks = []; for (let k = -10; k < 10; k++) ks.push(k);
+    const val = k => (bins[k] || 0) / (cnt[k] || 1), mx = Math.max(1e-9, ...ks.map(val));
+    ks.forEach(k => { const y0 = sy(k * 4 + 4), y1 = sy(k * 4), w = val(k) / mx * (pf.width - 30); gp.fillStyle = what === 'wave' ? glow : pos; gp.fillRect(10, y0 + 2, w, y1 - y0 - 4); });
+    gp.fillStyle = muted; gp.font = font(700, 20); gp.textAlign = 'left'; gp.fillText(what === 'wave' ? '幕の明るさ' : '幕に着いた玉', 10, 26);
+    document.getElementById('vt').textContent = what === 'wave' ? `${t} / ${T}` : '―';
+    document.getElementById('vinfo').innerHTML = what === 'wave'
+      ? (view === 'now' ? 'いまの波（青が正、赤が負）' : view === 'bright' ? '明るさ（最後の 120 刻の u² の和）' : '先頭が届いた刻（10 刻ごとに色を替える）')
+      : `幕に着いた玉 <b>${landY.length}</b>`;
+    document.getElementById('lg').innerHTML = what === 'wave' && view === 'front' ? '<span>同じ色の帯は、先頭が同じ 10 刻のあいだに届いた番地です。帯は最短の段数の輪に沿って並びます（第19章で、この段数を数える道具を作ります）。</span>' : '';
+  }
+  // ---------------- ボタン
+  const group = (id, items, get, set) => { const el = document.getElementById(id); items.forEach(([k, txt]) => { const b = document.createElement('button'); b.textContent = txt; b.onclick = () => { set(k); refresh(); }; b.dataset.k = k; el.append(b); }); return () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === get())); };
+  const m1 = group('what', [['wave', '波'], ['ball', '点（玉）']], () => what, k => { what = k; setup(); });
+  const m2 = group('slit', [['two', '二つのスリット'], ['one', '一つのスリット']], () => slitsName, k => { slitsName = k; setup(); });
+  const m3 = group('floor', [['pen', 'ペンローズの床'], ['sq', '四角い格子（対照）']], () => floorName, k => { floorName = k; setup(); });
+  const m4 = group('view', [['now', 'いまの波'], ['bright', '明るさ'], ['front', '先頭が届いた刻']], () => view, k => { view = k; });
+  function refresh() { m1(); m2(); m3(); m4(); document.getElementById('view').style.display = what === 'wave' ? '' : 'none'; draw(); }
+  document.getElementById('again').onclick = () => { setup(); refresh(); };
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  setup();
+  if (!playing) { while (t < T) waveStep(); }
+  refresh(); setPlay(playing);
+  function loop(tm) { const dt = Math.min(0.1, (tm - last) / 1000); last = tm;
+    if (playing) {
+      if (what === 'wave') { acc += dt * 90; let k = 0; while (acc >= 1 && k < 6) { acc -= 1; waveStep(); k++; } if (acc > 6) acc = 0; }
+      else { acc += dt * 40; while (acc >= 1) { acc -= 1; if (flying.length < 60) ballLaunch(); } for (let s = 0; s < 3; s++) flying = flying.filter(b => ballStep(b) === 'fly'); }
+      draw(); m4();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  window.__run = (wh, sl, fl) => { what = wh; slitsName = sl; floorName = fl; setup(); if (wh === 'wave') { while (t < T) waveStep(); } else { for (let i = 0; i < 20000; i++) { const b = { v: okSrc()[kuji.below(okSrc().length)] }; let st; do { st = ballStep(b); } while (st === 'fly'); } } refresh();
+    const X = F.X, Y = F.Y, bins = {}, cnt = {};
+    if (wh === 'wave') { for (let v = 0; v < n; v++) if (X[v] >= SCREEN_X - 2 && X[v] <= SCREEN_X + 2) { const k = Math.floor(Y[v] / 4); bins[k] = (bins[k] || 0) + bright[v]; cnt[k] = (cnt[k] || 0) + 1; } return Object.keys(bins).map(Number).sort((a, b) => a - b).filter(k => k >= -10 && k < 10).map(k => Math.round(bins[k] / cnt[k] / 1e9)); }
+    return [landY.length]; };
+})();
+</script>
+
+</body>
+</html>

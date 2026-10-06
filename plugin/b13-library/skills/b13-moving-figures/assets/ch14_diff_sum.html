@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>差分と和</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：差分の表を一段ずつ作る。下：0〜1 の x² の下を n 本の柱で数え、n³ − 3×(低い柱の和) を五角数の点で並べる */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>差分と和</h1>
+    <p class="lead">隣どうしを引くと差分、ここまでを足すと和です。差分を何段も取ると、n² は 2 段目で 2 に、n³ は 3 段目で 6 に着地します。0〜1 の x² の下を n 本の柱で数えると、n³ と「柱の和の 3 倍」との差は、五角数 1, 5, 12, 22, … になります。</p>
+  </header>
+
+  <section class="box" aria-label="差分の表">
+    <h2>差分の表を一段ずつ作る</h2>
+    <canvas id="cvA" width="1400" height="470"></canvas>
+    <div class="presets" id="pre"></div>
+    <div class="eq"><div>いまの一歩　<b id="op">―</b></div><div>表の左端　<b id="hd">―</b></div></div>
+    <p class="note">上の段の隣どうしを引いたものが、下の段です。表の左端の数（各段の先頭）だけから、和を取り直して列全体を戻せます。2ⁿ は差分が自分と同じ列、フィボナッチは差分が一つ前の自分です。</p>
+  </section>
+
+  <section class="box" aria-label="柱で数える">
+    <h2>0〜1 の x² の下を柱で数える</h2>
+    <canvas id="cvB" width="1400" height="620"></canvas>
+    <div class="controls"><button id="nm">n − 1</button><button id="np">n + 1</button></div>
+    <div class="eq">
+      <div>n = <b id="vn">1</b>　n³ = <b id="vc">1</b></div>
+      <div>低い柱の和 L = <b id="vl">0</b>　高い柱の和 H = <b id="vh">1</b></div>
+      <div>n³ − 3L = <b id="vr">1</b>　（五角数）</div>
+      <div>3H − n³ = <b id="vq">2</b>　右の点の数 = <b id="vd">1</b></div>
+    </div>
+    <p class="note">柱の幅は 1/n です。高さを n² 倍すると、低い柱は 0², 1², …, (n−1)²、高い柱は 1², 2², …, n² の整数になり、面積は「和 ÷ n³」です。3L は n³ より五角数だけ小さく、3H は n³ より別の五角数だけ大きくなります。曲線と柱の線は作図用の小数で描いています。右の図は、五角形を一つの角を共有して大きくしていったときの点の数です。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+
+  // ---------------- 上：差分の表
+  const SEQ = [
+    ['n²', Array.from({ length: 9 }, (_, k) => k * k), 3],
+    ['n³', Array.from({ length: 9 }, (_, k) => k * k * k), 4],
+    ['2ⁿ', [1, 2, 4, 8, 16, 32, 64, 128, 256], 3],
+    ['フィボナッチ', [0, 1, 1, 2, 3, 5, 8, 13, 21], 3],
+  ];
+  let sel = 0, rows = [], order = [], shown = 0;
+  function build() {
+    const [, a, d] = SEQ[sel];
+    rows = [a.slice()];
+    for (let i = 0; i < d; i++) { const p = rows[rows.length - 1], q = []; for (let j = 0; j + 1 < p.length; j++) q.push(p[j + 1] - p[j]); rows.push(q); }
+    order = []; for (let i = 1; i < rows.length; i++) for (let j = 0; j < rows[i].length; j++) order.push([i, j]);
+    shown = 0;
+  }
+  const cA = document.getElementById('cvA'), gA = cA.getContext('2d');
+  function drawA() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow'), cell = css('--cell');
+    gA.clearRect(0, 0, cA.width, cA.height);
+    const cw = 140, ch = 84, x0 = 120, y0 = 40;
+    const vis = new Set(order.slice(0, shown).map(([i, j]) => i + ',' + j));
+    const cur = shown > 0 && shown <= order.length ? order[shown - 1] : null;
+    const done = shown >= order.length;
+    rows.forEach((r, i) => {
+      gA.fillStyle = muted; gA.font = font(700, 24); gA.textAlign = 'right'; gA.fillText(i === 0 ? '列' : `${i} 段目`, x0 - 20, y0 + i * ch + ch / 2 + 8);
+      r.forEach((v, j) => {
+        const X = x0 + j * cw + i * cw / 2, Y = y0 + i * ch;
+        const on = i === 0 || vis.has(i + ',' + j);
+        const parent = cur && i === cur[0] - 1 && (j === cur[1] || j === cur[1] + 1);
+        const isCur = cur && i === cur[0] && j === cur[1];
+        const head = done && j === 0;
+        gA.fillStyle = cell; gA.strokeStyle = isCur || head ? glow : parent ? pos : rule; gA.lineWidth = isCur || head || parent ? 5 : 2;
+        gA.beginPath(); gA.roundRect(X + 6, Y + 6, cw - 12, ch - 14, 10); gA.fill(); gA.stroke();
+        if (on) { gA.fillStyle = v < 0 ? neg : ink; gA.font = font(600, 30, 'm'); gA.textAlign = 'center'; gA.fillText((v < 0 ? '−' : '') + Math.abs(v), X + cw / 2, Y + ch / 2 + 8); }
+      });
+    });
+    const f = v => (v < 0 ? '−' : '') + Math.abs(v);
+    document.getElementById('op').textContent = cur ? `${f(rows[cur[0] - 1][cur[1] + 1])} − ${f(rows[cur[0] - 1][cur[1]])} = ${f(rows[cur[0]][cur[1]])}` : '―';
+    document.getElementById('hd').textContent = done ? rows.map(r => f(r[0])).join(', ') : '―';
+  }
+  SEQ.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { sel = i; build(); mark(); drawA(); }; document.getElementById('pre').append(b); });
+  const mark = () => document.querySelectorAll('#pre button').forEach((b, i) => b.classList.toggle('on', i === sel));
+
+  // ---------------- 下：柱と五角数（判定は整数）
+  let n = 1;
+  function counts(n) { let L = 0, H = 0, sq = 0, odd = 1; for (let k = 0; k < n; k++) { L += sq; sq += odd; odd += 2; H += sq; } return [L, H]; }
+  function pentDots(n) {
+    const dir = [0, 1, 2, 3, 4].map(i => [Math.cos(i * 2 * Math.PI / 5), Math.sin(i * 2 * Math.PI / 5)]);
+    const pts = new Map();
+    for (let j = 0; j < n; j++) {
+      let p = [0, 0];
+      for (let s = 0; s < 5; s++) {
+        for (let t = 0; t <= j; t++) { const q = [p[0] + dir[s][0] * t, p[1] + dir[s][1] * t]; const key = Math.round(q[0] * 1e4) + ',' + Math.round(q[1] * 1e4); if (!pts.has(key)) pts.set(key, [q, j]); }
+        p = [p[0] + dir[s][0] * j, p[1] + dir[s][1] * j];
+      }
+    }
+    return [...pts.values()];
+  }
+  const cB = document.getElementById('cvB'), gB = cB.getContext('2d');
+  function drawB() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    gB.clearRect(0, 0, cB.width, cB.height);
+    const ox = 70, oy = 560, W = 560, Hh = 520;
+    gB.strokeStyle = rule; gB.lineWidth = 2; gB.strokeRect(ox, oy - Hh, W, Hh);
+    for (let k = 0; k < n; k++) {
+      const x = ox + W * k / n, w = W / n, lo = (k / n) ** 2, hi = ((k + 1) / n) ** 2;
+      gB.fillStyle = neg; gB.globalAlpha = .28; gB.fillRect(x, oy - Hh * hi, w, Hh * (hi - lo));
+      gB.fillStyle = pos; gB.globalAlpha = .55; gB.fillRect(x, oy - Hh * lo, w, Hh * lo);
+      gB.globalAlpha = 1; gB.strokeStyle = ink; gB.lineWidth = n > 40 ? 0.5 : 1.2; gB.strokeRect(x, oy - Hh * hi, w, Hh * hi);
+    }
+    gB.strokeStyle = glow; gB.lineWidth = 5; gB.beginPath();
+    for (let i = 0; i <= 200; i++) { const t = i / 200; const X = ox + W * t, Y = oy - Hh * t * t; i ? gB.lineTo(X, Y) : gB.moveTo(X, Y); } gB.stroke();
+    gB.fillStyle = muted; gB.font = font(500, 22, 'm'); gB.textAlign = 'center'; gB.fillText('0', ox, oy + 30); gB.fillText('1', ox + W, oy + 30); gB.fillText('y = x²', ox + W * .55, oy - Hh * .62);
+    // 五角数の点
+    const dots = pentDots(n), cx = 1000, cy = 560;
+    const R = Math.min(30, 470 / Math.max(1, (n - 1) * 1.65));
+    dots.forEach(([q, j]) => { gB.fillStyle = j === n - 1 ? glow : pos; gB.globalAlpha = j === n - 1 ? 1 : .75; gB.beginPath(); gB.arc(cx - 0 + (q[0] - 0.5 * (n - 1)) * R, cy - q[1] * R, Math.max(2.5, Math.min(9, R * .28)), 0, 7); gB.fill(); });
+    gB.globalAlpha = 1;
+    const [L, H] = counts(n), c = n * n * n;
+    document.getElementById('vn').textContent = n; document.getElementById('vc').textContent = c;
+    document.getElementById('vl').textContent = L; document.getElementById('vh').textContent = H;
+    document.getElementById('vr').textContent = c - (L + L + L); document.getElementById('vq').textContent = H + H + H - c;
+    document.getElementById('vd').textContent = dots.length;
+  }
+  document.getElementById('nm').onclick = () => { n = Math.max(1, n - 1); drawB(); };
+  document.getElementById('np').onclick = () => { n = Math.min(30, n + 1); drawB(); };
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), accA = 0, accB = 0, hold = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  build(); mark(); if (!playing) { shown = order.length; n = 6; } drawA(); drawB(); setPlay(playing);
+  function loop(tm) { const dt = (tm - last) / 1000; last = tm;
+    if (playing) {
+      accA += dt * 2.2;
+      while (accA >= 1) { accA -= 1; if (shown < order.length) shown++; else if (++hold > 6) { hold = 0; sel = (sel + 1) % SEQ.length; build(); mark(); } }
+      accB += dt * 0.9; if (accB >= 1) { accB = 0; n = n >= 12 ? 1 : n + 1; drawB(); }
+      drawA();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

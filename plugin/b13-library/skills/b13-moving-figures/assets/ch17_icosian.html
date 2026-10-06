@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>120 個の四元数</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 単位イコシアン 120 個を 600 胞体の頂点として四次元で回して見せ、一歩（左から掛ける）で印が移って戻るところを整数の組で示す */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>120 個の四元数</h1>
+    <p class="lead">(±1, 0, 0, 0) の並べ替え 8 個と (±½, ±½, ±½, ±½) 16 個の 24 個は、掛け算で閉じます。ここに (±φ, ±1, ±(φ − 1), 0)/2 の偶置換 96 個を足した 120 個も、掛け算で閉じます。120 個を四次元の点として並べると 600 胞体になります。どの一つを全部に掛けても、120 点はそっくり自分に重なります。</p>
+  </header>
+
+  <section class="box" aria-label="600胞体">
+    <h2>600 胞体と一歩</h2>
+    <canvas id="cv" width="1400" height="1000" style="touch-action:none"></canvas>
+    <div class="presets" id="show"></div>
+    <div class="presets" id="steps"></div>
+    <div class="eq"><div>掛ける四元数 q（2 倍）= <b id="vq">―</b></div><div>歩数 <b id="vn">0</b>　<b id="vback">―</b></div><div>印の点はいつも 120 個のどれか　<b id="vin">―</b></div></div>
+    <div class="legend" id="lg"></div>
+    <p class="note">点の色は、第 1 成分で切った 9 枚の層（1, 12, 20, 12, 30, 12, 20, 12, 1 個）です。辺は、内積がちょうど φ/2 の対だけを結んだ 720 本です。図は、10 歩で戻る q を左から掛けたときに 36° ずつ回る二つの面のあいだで、見る向きを倒したり戻したりしています。一方の面に正面から落とすと、点は十角形の輪に並びます。形は変わらず、動いているのは見る向きだけで、四次元から画面へ落とすところだけ小数を使います。ドラッグで向きを変えられます。「一歩」を押すと、金色の印の 12 点に q を左から掛けます。掛け算は整数の組のままで、印は 120 点のどれかに着地し、決まった歩数で元の 12 点に戻ります。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const Z0 = [0, 0], zadd = (u, v) => [u[0] + v[0], u[1] + v[1]], zneg = u => [-u[0], -u[1]];
+  const zmul = ([a, b], [c, d]) => [a * c + b * d, a * d + b * c + b * d], zval = ([a, b]) => a + b * PHI;
+  const zhalf = ([a, b]) => { if (a % 2 || b % 2) throw new Error('割り切れない'); return [a / 2, b / 2]; };
+  const zs = ([a, b]) => { const m = v => (v < 0 ? '−' : '') + Math.abs(v); if (b === 0) return m(a); const bb = b === 1 ? 'φ' : b === -1 ? '−φ' : m(b) + 'φ'; if (a === 0) return bb; return `${m(a)} ${b > 0 ? '+' : '−'} ${Math.abs(b) === 1 ? '' : Math.abs(b)}φ`; };
+  const key = q => q.map(c => c.join(',')).join(';');
+  // 四元数（2 倍で持つ）
+  const S = (...t) => t.reduce(zadd, Z0);
+  const qraw = ([a1, b1, c1, d1], [a2, b2, c2, d2]) => [
+    S(zmul(a1, a2), zneg(zmul(b1, b2)), zneg(zmul(c1, c2)), zneg(zmul(d1, d2))),
+    S(zmul(a1, b2), zmul(b1, a2), zmul(c1, d2), zneg(zmul(d1, c2))),
+    S(zmul(a1, c2), zneg(zmul(b1, d2)), zmul(c1, a2), zmul(d1, b2)),
+    S(zmul(a1, d2), zmul(b1, c2), zneg(zmul(c1, b2)), zmul(d1, a2))];
+  const qmul = (p, q) => qraw(p, q).map(zhalf);
+  const ONE = [[2, 0], Z0, Z0, Z0];
+  const dot = (p, q) => S(...p.map((c, i) => zmul(c, q[i])));
+  // 120 個
+  const V = [], seen = new Set();
+  const add = q => { const k = key(q); if (!seen.has(k)) { seen.add(k); V.push(q); } };
+  for (let i = 0; i < 4; i++) for (const s of [2, -2]) { const v = [Z0, Z0, Z0, Z0]; v[i] = [s, 0]; add(v); }
+  for (let m = 0; m < 16; m++) add([0, 1, 2, 3].map(k => [(m >> k) & 1 ? 1 : -1, 0]));
+  const H24 = new Set(V.map(key));
+  const perms = []; const permute = (a, l = []) => { if (!a.length) { perms.push(l); return; } a.forEach((x, i) => permute(a.filter((_, j) => j !== i), l.concat(x))); }; permute([0, 1, 2, 3]);
+  const parity = p => { let c = 0; for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (p[i] > p[j]) c++; return c % 2 === 0; };
+  const base = [[0, 1], [1, 0], [-1, 1], Z0];
+  perms.filter(parity).forEach(p => { for (let m = 0; m < 8; m++) { const v = base.map((b, i) => i < 3 && !((m >> i) & 1) ? zneg(b) : b); add([0, 1, 2, 3].map(i => v[p[i]])); } });
+  const idx = new Map(V.map((q, i) => [key(q), i]));
+  const E = []; for (let a = 0; a < V.length; a++) for (let b = a + 1; b < V.length; b++) { const d = dot(V[a], V[b]); if (d[0] === 0 && d[1] === 2) E.push([a, b]); }
+  const order = q => { let x = q, k = 1; while (key(x) !== key(ONE)) { x = qmul(x, q); if (++k > 30) return 0; } return k; };
+  const LAYERS = ['2', 'φ', '1', '−1 + φ', '0', '1 − φ', '−1', '−φ', '−2'];
+  const layerOf = q => LAYERS.indexOf(zs(q[0]));
+  const LCOL = ['#c2410c', '#d97706', '#65a30d', '#0d9488', '#2563eb', '#0d9488', '#65a30d', '#d97706', '#c2410c'];
+
+  // 一歩
+  const STEPS = [2, 3, 4, 5, 6, 10].map(o => [o, V.find(q => order(q) === o && key(q) !== key(ONE))]);
+  const start = V.map((q, i) => i).filter(i => layerOf(V[i]) === 1);            // 第 1 成分が φ の 12 点
+  let mark = start.slice(), stepQ = null, nStep = 0, allIn = true, show24 = false;
+  function doStep() { if (!stepQ) return; mark = mark.map(i => { const r = qmul(stepQ, V[i]); const j = idx.get(key(r)); if (j === undefined) allIn = false; return j; }); nStep++; }
+  const sameSet = (a, b) => a.length === b.length && [...a].sort((x, y) => x - y).every((v, i) => v === [...b].sort((x, y) => x - y)[i]);
+
+  // 見る向き（小数は画面へ落とすところだけ）。10 歩で戻る q を左から掛けたときに 36° ずつ回る面に落とす
+  const P4 = V.map(q => q.map(zval).map(v => v / 2));
+  const fq = (a, b) => [a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3], a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2], a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1], a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];
+  const q10 = V.find(q => order(q) === 10).map(zval).map(v => v / 2);
+  // 左から掛ける回し方は、どの向きでも同じ 36° で回す。v と q·v の張る面と、それに直交する面の二つを使う
+  const dd0 = (u, v) => u.reduce((t, ui, i) => t + ui * v[i], 0), nrm = v => Math.hypot(...v);
+  const orth = (v, bs) => { let w = v.slice(); bs.forEach(b => { const c = dd0(w, b); w = w.map((t, i) => t - c * b[i]); }); return w.map(t => t / nrm(w)); };
+  const v0 = [1, 0, 0, 0];                       // 1 の通り道（q の冪）がそのまま正十角形になる
+  const A1 = orth(v0, []), A2 = orth(fq(q10, A1), [A1]);
+  const B1 = orth([0.9, -0.2, 0.4, -0.6], [A1, A2]), B2 = orth(fq(q10, B1), [A1, A2, B1]);
+  const dd = (u, v) => u.reduce((t, ui, i) => t + ui * v[i], 0);
+  let t1 = 0, u = 0, t3 = 0;
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  function project(p) {
+    const c = Math.cos(u), s_ = Math.sin(u);
+    let X = c * dd(p, A1) + s_ * dd(p, B1), Y = c * dd(p, A2) + s_ * dd(p, B2);
+    const D = -s_ * dd(p, A1) + c * dd(p, B1);
+    const ct = Math.cos(t1), st = Math.sin(t1); [X, Y] = [ct * X - st * Y, st * X + ct * Y];
+    return [X, Y, D, 0.75 + 0.35 * D];
+  }
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), glow = css('--glow'), rule = css('--rule');
+    g.clearRect(0, 0, cv.width, cv.height);
+    const W = cv.width, H = cv.height, sc = Math.min(W, H) * 0.44, cx = W / 2, cy = H / 2;
+    const pr = P4.map(project);
+    g.strokeStyle = muted; g.lineWidth = 1; g.globalAlpha = .28; g.beginPath();
+    E.forEach(([a, b]) => { g.moveTo(cx + pr[a][0] * sc, cy - pr[a][1] * sc); g.lineTo(cx + pr[b][0] * sc, cy - pr[b][1] * sc); }); g.stroke(); g.globalAlpha = 1;
+    const ms = new Set(mark);
+    V.map((q, i) => i).sort((a, b) => pr[a][2] - pr[b][2]).forEach(i => {
+      const [X, Y, , k] = pr[i], r = 4 + 9 * k;
+      if (show24 && !H24.has(key(V[i]))) { g.fillStyle = rule; g.beginPath(); g.arc(cx + X * sc, cy - Y * sc, r * .6, 0, 7); g.fill(); return; }
+      g.fillStyle = LCOL[layerOf(V[i])]; g.beginPath(); g.arc(cx + X * sc, cy - Y * sc, r, 0, 7); g.fill();
+      if (ms.has(i)) { g.strokeStyle = glow; g.lineWidth = 5; g.stroke(); g.strokeStyle = ink; g.lineWidth = 1.5; g.beginPath(); g.arc(cx + X * sc, cy - Y * sc, r + 6, 0, 7); g.stroke(); }
+    });
+    document.getElementById('vq').textContent = stepQ ? `(${stepQ.map(zs).join(', ')})` : '―';
+    document.getElementById('vn').textContent = nStep;
+    document.getElementById('vback').textContent = nStep > 0 && sameSet(mark, start) ? '元の 12 点に戻った' : '';
+    document.getElementById('vin').textContent = allIn ? '着地' : '外れた';
+  }
+  // ボタン
+  const mk = (where, t, f) => { const b = document.createElement('button'); b.textContent = t; b.onclick = f; document.getElementById(where).append(b); return b; };
+  const b120 = mk('show', '120 個', () => { show24 = false; b120.classList.add('on'); b24.classList.remove('on'); draw(); });
+  const b24 = mk('show', '整数で閉じる 24 個', () => { show24 = true; b24.classList.add('on'); b120.classList.remove('on'); draw(); });
+  b120.classList.add('on');
+  const stepBtns = STEPS.map(([o, q]) => mk('steps', `一歩（${o} 歩で戻る q）`, () => { if (stepQ !== q) { stepQ = q; mark = start.slice(); nStep = 0; allIn = true; } doStep(); stepBtns.forEach((b, i) => b.classList.toggle('on', STEPS[i][1] === q)); draw(); }));
+  mk('steps', '戻す', () => { mark = start.slice(); nStep = 0; allIn = true; draw(); });
+  document.getElementById('lg').innerHTML = LAYERS.map((l, i) => i <= 4 ? `<span><i style="background:${LCOL[i]}"></i>第 1 成分 ${l === '2' ? '1' : l === 'φ' ? 'φ/2' : l === '1' ? '1/2' : l === '−1 + φ' ? '(φ − 1)/2' : '0'}${i < 4 ? ' と ' + (i === 0 ? '−1' : i === 1 ? '−φ/2' : i === 2 ? '−1/2' : '−(φ − 1)/2') : ''}</span>` : '').join('');
+
+  // ドラッグで回す
+  let drag = null; cv.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => { if (!drag) return; t1 += (e.clientX - drag[0]) * 0.01; u += (e.clientY - drag[1]) * 0.01; drag = [e.clientX, e.clientY]; draw(); });
+  cv.addEventListener('pointerup', () => drag = null);
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  stepQ = STEPS[3][1]; stepBtns[3].classList.add('on');
+  draw(); setPlay(playing);
+  function loop(tm) { const dt = (tm - last) / 1000; last = tm;
+    if (playing) { t1 += dt * 0.12; t3 += dt * 0.35; u = 0.75 * (1 - Math.cos(t3)) ; acc += dt; if (acc > 1.6) { acc = 0; doStep(); if (nStep >= 20) { mark = start.slice(); nStep = 0; } } draw(); }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  window.__check = { n: V.length, e: E.length, orders: STEPS.map(([o]) => o), layers: LAYERS.map((_, i) => V.filter(q => layerOf(q) === i).length) };
+})();
+</script>
+
+</body>
+</html>

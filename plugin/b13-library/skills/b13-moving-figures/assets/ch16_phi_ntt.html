@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>十の番地で回す</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：十の番地の輪で、番地 m·k に乗った 2cos と sin 比（Z[φ] の数）を掛けて足し、A[m]・B[m] を作る。下：畳み込みを直接と変換経由で並べる */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>十の番地で回す</h1>
+    <p class="lead">輪を 10 等分すると、一番地は 36° です。2cos(36°·k) は 2, φ, φ − 1, 1 − φ, −φ, −2, … と、sin(36°·k) ÷ sin 36° は 0, 1, φ, φ, 1, 0, … と、どれも Z[φ] の数（整数の組）になります。この二つの表で列を回すと、変換も、戻すことも、畳み込みも、整数の組だけで済みます。</p>
+  </header>
+
+  <section class="box" aria-label="変換">
+    <h2>A[m] と B[m] を作る</h2>
+    <canvas id="cvA" width="1400" height="720"></canvas>
+    <div class="presets" id="pre"></div>
+    <div class="eq"><div>m = <b id="vm">0</b>　A[m] = <b id="va">―</b></div><div>B[m] = <b id="vb">―</b></div><div>戻した列 = 元の列　<b id="vr">―</b></div></div>
+    <div class="legend"><span><i style="background:var(--pos)"></i>cos の側 A</span><span><i style="background:var(--neg)"></i>sin の側 B</span></div>
+    <p class="note">左の輪は、番地 k の数 x[k] が、m·k 番地（10 で回したもの）に置かれるところです。そこに乗った 2cos と sin 比を掛けて足したものが A[m] と B[m] です。棒の長さは作図用の小数で、数は整数の組で出しています。40·x[k] = Σ 2cos·A + (3 − φ)·Σ sin比·B で、元の列に戻ります。</p>
+  </section>
+
+  <section class="box" aria-label="畳み込み">
+    <h2>畳み込みは、変換の側で掛け算になる</h2>
+    <canvas id="cvB" width="1400" height="430"></canvas>
+    <div class="presets" id="preB"></div>
+    <p class="note">直接の畳み込み（輪を一周する、ずらして掛けて足す）と、変換してから番地ごとに 2·A_y = A_x·A_h − (3 − φ)·B_x·B_h、2·B_y = A_x·B_h + B_x·A_h と掛けて戻したものを並べます。どの番地でも同じ整数になります。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const Z0 = [0, 0], zadd = (u, v) => [u[0] + v[0], u[1] + v[1]], zneg = u => [-u[0], -u[1]];
+  const zmul = ([a, b], [c, d]) => [a * c + b * d, a * d + b * c + b * d], zval = ([a, b]) => a + b * PHI;
+  const zdiv = ([a, b], n) => { if (a % n || b % n) throw new Error('割り切れない'); return [a / n, b / n]; };
+  const zs = ([a, b]) => { const m = v => (v < 0 ? '−' : '') + Math.abs(v); if (b === 0) return m(a); const bb = b === 1 ? 'φ' : b === -1 ? '−φ' : m(b) + 'φ'; if (a === 0) return bb; return `${m(a)} ${b > 0 ? '+' : '−'} ${Math.abs(b) === 1 ? '' : Math.abs(b)}φ`; };
+  const zeq = (u, v) => u[0] === v[0] && u[1] === v[1];
+  const COS2 = [[2, 0], [0, 1], [-1, 1], [1, -1], [0, -1], [-2, 0], [0, -1], [1, -1], [-1, 1], [0, 1]];
+  const SINR = [[0, 0], [1, 0], [0, 1], [0, 1], [1, 0], [0, 0], [-1, 0], [0, -1], [0, -1], [-1, 0]];
+  const SIN2 = [3, -1];
+  const ad = (m, k) => (m * k) % 10;
+  const fwd = x => [Array.from({ length: 10 }, (_, m) => x.reduce((s, v, k) => zadd(s, zmul(COS2[ad(m, k)], v)), Z0)),
+                    Array.from({ length: 10 }, (_, m) => x.reduce((s, v, k) => zadd(s, zmul(SINR[ad(m, k)], v)), Z0))];
+  const inv = (A, B) => Array.from({ length: 10 }, (_, k) => { let c = Z0, s = Z0; for (let m = 0; m < 10; m++) { c = zadd(c, zmul(COS2[ad(m, k)], A[m])); s = zadd(s, zmul(SINR[ad(m, k)], B[m])); } return zdiv(zadd(c, zmul(SIN2, s)), 40); });
+  const cyc = (x, h) => Array.from({ length: 10 }, (_, k) => { let s = Z0; for (let j = 0; j < 10; j++) s = zadd(s, zmul(h[j], x[(k - j + 10) % 10])); return s; });
+
+  // ---------------- 上：変換
+  const I = v => v.map(t => [t, 0]);
+  const PRE = [['3, 1, 4, 1, 5, 9, 2, 6, 5, 3', I([3, 1, 4, 1, 5, 9, 2, 6, 5, 3])], ['番地 0 だけ 1', I([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])], ['全部 1', I(Array(10).fill(1))],
+               ['交互 +1, −1', I([1, -1, 1, -1, 1, -1, 1, -1, 1, -1])], ['2cos(36°k)', COS2.map(v => v.slice())], ['山ひとつ', I([0, 1, 3, 5, 6, 5, 3, 1, 0, 0])]];
+  let sel = 0, X, A, B, m = 0, kk = 0;
+  function build() { X = PRE[sel][1]; [A, B] = fwd(X); m = 0; kk = 0; document.getElementById('vr').textContent = inv(A, B).every((v, i) => zeq(v, X[i])) ? '一致' : '不一致'; }
+  const cA = document.getElementById('cvA'), gA = cA.getContext('2d');
+  function drawA() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    gA.clearRect(0, 0, cA.width, cA.height);
+    // 輪
+    const cx = 300, cy = 330, R = 230;
+    gA.strokeStyle = rule; gA.lineWidth = 3; gA.beginPath(); gA.arc(cx, cy, R, 0, 7); gA.stroke();
+    for (let j = 0; j < 10; j++) { const t = Math.PI / 2 - j * Math.PI / 5, px = cx + R * Math.cos(t), py = cy - R * Math.sin(t);
+      gA.fillStyle = muted; gA.font = font(500, 19, 'm'); gA.textAlign = 'center'; gA.fillText(`${j}`, cx + (R + 34) * Math.cos(t), cy - (R + 34) * Math.sin(t) + 7);
+      gA.fillStyle = pos; gA.font = font(600, 17, 'm'); gA.fillText(zs(COS2[j]), cx + (R - 46) * Math.cos(t), cy - (R - 46) * Math.sin(t) + 2);
+      gA.fillStyle = neg; gA.fillText(zs(SINR[j]), cx + (R - 46) * Math.cos(t), cy - (R - 46) * Math.sin(t) + 22);
+      gA.fillStyle = rule; gA.beginPath(); gA.arc(px, py, 7, 0, 7); gA.fill(); }
+    // 番地 m·k に置かれた x[k]
+    const counts = {};
+    for (let k = 0; k <= kk; k++) { const j = ad(m, k), n = counts[j] = (counts[j] || 0) + 1, t = Math.PI / 2 - j * Math.PI / 5, rr = R + 4 - 0;
+      const px = cx + rr * Math.cos(t) + (n - 1) * 20 * Math.cos(t), py = cy - rr * Math.sin(t) - (n - 1) * 20 * Math.sin(t);
+      gA.fillStyle = k === kk ? glow : ink; gA.beginPath(); gA.arc(px, py, k === kk ? 13 : 9, 0, 7); gA.fill(); }
+    gA.fillStyle = ink; gA.font = font(700, 26); gA.textAlign = 'center'; gA.fillText(`m = ${m}：番地 k を m·k 番地へ`, cx, 30);
+    // 棒
+    const bx = 640, bw = 70, top = 70;
+    const lane = (vals, y0, h, col, title, upto) => { const mx = Math.max(1, ...vals.map(v => Math.abs(zval(v))));
+      gA.strokeStyle = rule; gA.lineWidth = 2; gA.beginPath(); gA.moveTo(bx - 10, y0); gA.lineTo(bx + 10 * bw, y0); gA.stroke();
+      gA.fillStyle = muted; gA.font = font(700, 22); gA.textAlign = 'right'; gA.fillText(title, bx - 18, y0 + 8);
+      vals.forEach((v, i) => { if (i > upto) return; const hh = zval(v) / mx * h; gA.fillStyle = col; gA.globalAlpha = i === m && upto < 10 && col !== ink ? 1 : .7; gA.fillRect(bx + i * bw + 8, y0 - Math.max(hh, 0), bw - 16, Math.abs(hh)); gA.globalAlpha = 1; });
+      if (col === ink) { gA.fillStyle = muted; gA.font = font(500, 18, 'm'); gA.textAlign = 'center'; vals.forEach((_, i) => gA.fillText(i, bx + i * bw + bw / 2, y0 + 28)); } };
+    lane(X, top + 110, 100, ink, 'x', 9);
+    lane(A, top + 340, 100, pos, 'A', m);
+    lane(B, top + 570, 100, neg, 'B', m);
+    document.getElementById('vm').textContent = m; document.getElementById('va').textContent = zs(A[m]); document.getElementById('vb').textContent = zs(B[m]);
+  }
+  PRE.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { sel = i; build(); if (!playing) { m = 9; kk = 9; } mark(); drawA(); drawB(); }; document.getElementById('pre').append(b); });
+  const mark = () => document.querySelectorAll('#pre button').forEach((b, i) => b.classList.toggle('on', i === sel));
+
+  // ---------------- 下：畳み込み
+  const PB = [['h = (1, 2, 0, …, 0, −1)', I([1, 2, 0, 0, 0, 0, 0, 0, 0, -1])], ['h = 隣を引く (1, −1, 0, …)', I([1, -1, 0, 0, 0, 0, 0, 0, 0, 0])], ['h = 2cos(36°k)', COS2.map(v => v.slice())]];
+  let selB = 0, kB = 0;
+  const cB = document.getElementById('cvB'), gB = cB.getContext('2d');
+  function drawB() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), glow = css('--glow'), cell = css('--cell'), neg = css('--neg');
+    gB.clearRect(0, 0, cB.width, cB.height);
+    const x = PRE[sel][1], h = PB[selB][1], d = cyc(x, h);
+    const [Ax, Bx] = fwd(x), [Ah, Bh] = fwd(h);
+    const Ay = Ax.map((_, i) => zdiv(zadd(zmul(Ax[i], Ah[i]), zneg(zmul(SIN2, zmul(Bx[i], Bh[i])))), 2));
+    const By = Ax.map((_, i) => zdiv(zadd(zmul(Ax[i], Bh[i]), zmul(Bx[i], Ah[i])), 2));
+    const v = inv(Ay, By);
+    const cw = 118, x0 = 200, ch = 70;
+    const row = (vals, y, title, upto, hl) => { gB.fillStyle = muted; gB.font = font(700, 22); gB.textAlign = 'right'; gB.fillText(title, x0 - 14, y + ch / 2 + 2);
+      vals.forEach((t, i) => { gB.fillStyle = cell; gB.strokeStyle = i === hl ? glow : rule; gB.lineWidth = i === hl ? 5 : 2; gB.beginPath(); gB.roundRect(x0 + i * cw + 4, y + 4, cw - 8, ch - 12, 9); gB.fill(); gB.stroke();
+        if (i <= upto) { const s = zs(t); gB.fillStyle = zval(t) < 0 ? neg : ink; gB.font = font(600, s.length > 7 ? 17 : s.length > 4 ? 21 : 26, 'm'); gB.textAlign = 'center'; gB.fillText(s, x0 + i * cw + cw / 2, y + ch / 2 + 4); } }); };
+    row(x, 10, 'x', 9, -1); row(h, 90, 'h', 9, -1);
+    row(d, 200, '直接', kB, kB); row(v, 290, '変換経由', kB, kB);
+    gB.fillStyle = muted; gB.font = font(500, 20, 'm'); gB.textAlign = 'center'; for (let i = 0; i < 10; i++) gB.fillText(i, x0 + i * cw + cw / 2, 400);
+    gB.fillStyle = pos; gB.font = font(700, 22); gB.textAlign = 'left'; gB.fillText(d.slice(0, kB + 1).every((t, i) => zeq(t, v[i])) ? 'ここまで一致' : '不一致', 20, 410);
+  }
+  PB.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { selB = i; kB = playing ? 0 : 9; markB(); drawB(); }; document.getElementById('preB').append(b); });
+  const markB = () => document.querySelectorAll('#preB button').forEach((b, i) => b.classList.toggle('on', i === selB));
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), accA = 0, accB = 0, hold = 0, holdB = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  build(); mark(); markB(); if (!playing) { m = 9; kk = 9; kB = 9; } drawA(); drawB(); setPlay(playing);
+  function loop(tm) { const dt = (tm - last) / 1000; last = tm;
+    if (playing) {
+      accA += dt * 6; while (accA >= 1) { accA -= 1; if (kk < 9) kk++; else if (m < 9) { m++; kk = 0; } else if (++hold > 12) { hold = 0; sel = (sel + 1) % PRE.length; build(); mark(); } }
+      accB += dt * 1.4; while (accB >= 1) { accB -= 1; if (kB < 9) kB++; else if (++holdB > 4) { holdB = 0; kB = 0; selB = (selB + 1) % PB.length; markB(); } }
+      drawA(); drawB();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

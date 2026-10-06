@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>アメーバは探す</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：ペンローズの床で、餌の濃さを隣の足し算だけで広げ、アメーバが濃い方へ寄って最短の段数で餌に着く。下：二分法とフィボナッチで探す */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>アメーバは探す</h1>
+    <p class="lead">餌の濃さは、どの番地も「通れる隣の濃さを足す」だけで広がります。餌の番地には毎刻 k^t を注ぎ足します。濃さは、餌からその番地へ至るすべての道の寄与の和です。アメーバは、隣のうちいちばん濃い番地へ移るだけで、壁を避けた最短の段数ちょうどで餌に着きます。</p>
+  </header>
+
+  <section class="box" aria-label="アメーバ">
+    <h2>ペンローズの床の上で餌まで</h2>
+    <canvas id="cv" width="1400" height="940" style="touch-action:none"></canvas>
+    <div class="presets" id="wl"></div>
+    <div class="presets" id="opt"></div>
+    <div class="eq"><div>刻 <b id="vt">0</b> / 160</div><div id="vres">―</div></div>
+    <div class="legend"><span><i style="background:var(--pos)"></i>濃さ（桁の数で色の濃さを変える）</span><span><i style="background:var(--glow)"></i>アメーバの道</span><span><i style="background:var(--ink)"></i>壁</span><span><i style="background:var(--neg)"></i>餌</span></div>
+    <p class="note">濃さは整数（桁の多い整数）のまま足し、色は桁の数で塗っています。床をタップすると、そこに壁を置いたり外したりできます。「壁を無視して広げる」では、濃さが壁を突き抜けて広がり、アメーバは壁の手前で止まります。注ぎ足しの倍率 k を 4 にすると、濃さが長い道ばかりで決まり、アメーバは餌に着けません。番地の置き場所だけが作図用の小数です。</p>
+  </section>
+
+  <section class="box" aria-label="二分法とフィボナッチ">
+    <h2>並んだ列から探す：二分法とフィボナッチ</h2>
+    <canvas id="cb" width="1400" height="360"></canvas>
+    <div class="presets" id="keys"></div>
+    <div class="eq"><div>二分法 <b id="vb1">―</b></div><div>フィボナッチ <b id="vb2">―</b></div></div>
+    <p class="note">1, 4, 9, …, 1000000（1000 個の平方数）から一つを探します。二分法は幅を半分にし、フィボナッチは幅をフィボナッチ数で切って、二つ前のフィボナッチ数を引くだけで次の幅を出します。帯が、まだ残っている幅です。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button><button id="again">最初から</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  const WX = 30, WY = 20, LEVELS = 8, T = 160;
+  // ---------------- 床（第18章と同じ作り方）
+  function penrose() {
+    const PHI = (1 + Math.sqrt(5)) / 2; let tris = [];
+    for (let i = 0; i < 10; i++) { let b = [Math.cos((2 * i - 1) * Math.PI / 10), Math.sin((2 * i - 1) * Math.PI / 10)], c = [Math.cos((2 * i + 1) * Math.PI / 10), Math.sin((2 * i + 1) * Math.PI / 10)]; if (i % 2 === 0) [b, c] = [c, b]; tris.push([0, [0, 0], b, c]); }
+    for (let k = 0; k < LEVELS; k++) { const out = []; for (const [col, A, B, C] of tris) { if (col === 0) { const Pp = [A[0] + (B[0] - A[0]) / PHI, A[1] + (B[1] - A[1]) / PHI]; out.push([0, C, Pp, B], [1, Pp, C, A]); } else { const Q = [B[0] + (A[0] - B[0]) / PHI, B[1] + (A[1] - B[1]) / PHI], R = [B[0] + (C[0] - B[0]) / PHI, B[1] + (C[1] - B[1]) / PHI]; out.push([1, R, C, A], [1, Q, R, B], [0, R, Q, A]); } } tris = out; }
+    const e = tris[0], s = 1 / Math.hypot(e[2][0] - e[1][0], e[2][1] - e[1][1]);
+    const idx = new Map(), X = [], Y = [], E = new Set();
+    const vid = p => { const k = Math.round(p[0] * s * 1e3) + ',' + Math.round(p[1] * s * 1e3); let i = idx.get(k); if (i === undefined) { i = X.length; idx.set(k, i); X.push(p[0] * s); Y.push(p[1] * s); } return i; };
+    const inside = p => Math.abs(p[0] * s) <= WX && Math.abs(p[1] * s) <= WY;
+    for (const [, A, B, C] of tris) for (const Q of [B, C]) if (inside(A) && inside(Q)) { const a = vid(A), b = vid(Q); E.add(Math.min(a, b) * 100000 + Math.max(a, b)); }
+    const adj = X.map(() => []); const edges = []; E.forEach(k => { const a = Math.floor(k / 100000), b = k % 100000; adj[a].push(b); adj[b].push(a); edges.push([a, b]); });
+    return { X, Y, adj, edges };
+  }
+  const F = penrose(), { X, Y, adj, edges } = F, n = X.length;
+  const near = (x, y) => { let b = 0, bd = 1e9; for (let v = 0; v < n; v++) { const d = (X[v] - x) ** 2 + (Y[v] - y) ** 2; if (d < bd) { bd = d; b = v; } } return b; };
+  const food = near(24, 0), seeds = [-12, -4, 4, 12].map(y => near(-24, y));
+  const KINDS = { '隙間は上': (x, y) => -1 <= x && x <= 0.6 && !(8 <= y && y <= 11), '隙間は下': (x, y) => -1 <= x && x <= 0.6 && !(-11 <= y && y <= -8),
+    'ジグザグ': (x, y) => (-12 <= x && x <= -11.4 && y > -12) || (-1 <= x && x <= -0.4 && y < 12) || (10 <= x && x <= 10.6 && y > -12), 'ふさぐ': (x, y) => -1 <= x && x <= 0.6, '壁なし': () => false };
+  let kind = '隙間は上', wall, ignore = false, K = 8n, D, t, kt, paths, dist;
+  function setWalls() { wall = X.map((x, v) => KINDS[kind](x, Y[v]) && v !== food && !seeds.includes(v)); }
+  function hopsFrom(src) { const d = new Int32Array(n).fill(-1); d[src] = 0; const q = [src]; for (let i = 0; i < q.length; i++) { const v = q[i]; for (const u of adj[v]) if (d[u] < 0 && !wall[u]) { d[u] = d[v] + 1; q.push(u); } } return d; }
+  function reset() { D = new Array(n).fill(0n); t = 0; kt = 1n; paths = null; dist = hopsFrom(food); }
+  function step() { if (t >= T) return; const N = new Array(n).fill(0n);
+    for (let v = 0; v < n; v++) { if (wall[v] && !ignore) continue; let s = 0n; for (const u of adj[v]) if (ignore || !wall[u]) s += D[u]; N[v] = s; }
+    N[food] += kt; kt *= K; D = N; t++; if (t === T) climbAll(); }
+  function climbAll() { paths = seeds.map(s => { let front = new Set([s]); const layers = [[s]]; let steps = 0;
+      while (!front.has(food)) { const nxt = new Set(); for (const v of front) { const nb = adj[v].filter(u => !wall[u]); if (!nb.length) continue; let m = -1n; for (const u of nb) if (D[u] > m) m = D[u]; if (m <= D[v]) continue; nb.forEach(u => { if (D[u] === m) nxt.add(u); }); }
+        if (!nxt.size || steps > 400) return { layers, steps: null, s }; front = nxt; layers.push([...nxt]); steps++; }
+      return { layers, steps, s }; }); }
+  // ---------------- 描く
+  const cv = document.getElementById('cv'), g = cv.getContext('2d');
+  const sc = Math.min(cv.width / (2 * WX + 2), cv.height / (2 * WY + 2)), ox = cv.width / 2, oy = cv.height / 2;
+  const PX = v => ox + X[v] * sc, PY = v => oy - Y[v] * sc;
+  let shown = 0;
+  function draw() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow'), bg = css('--panel');
+    g.fillStyle = bg; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = rule; g.lineWidth = 1; g.beginPath(); edges.forEach(([a, b]) => { g.moveTo(PX(a), PY(a)); g.lineTo(PX(b), PY(b)); }); g.stroke();
+    let maxd = 1, mind = 1e9; const dl = D.map(x => x > 0n ? x.toString().length : 0); for (let v = 0; v < n; v++) if (dl[v]) { maxd = Math.max(maxd, dl[v]); mind = Math.min(mind, dl[v]); }
+    for (let v = 0; v < n; v++) {
+      if (wall[v]) { g.fillStyle = ink; g.fillRect(PX(v) - 7, PY(v) - 7, 14, 14); continue; }
+      if (dl[v]) { g.globalAlpha = 0.1 + 0.9 * (dl[v] - mind + 1) / (maxd - mind + 1); g.fillStyle = pos; g.beginPath(); g.arc(PX(v), PY(v), 7, 0, 7); g.fill(); g.globalAlpha = 1; }
+    }
+    if (paths) paths.forEach(p => { const L = Math.min(p.layers.length, shown + 1); for (let i = 0; i + 1 < L; i++) { g.strokeStyle = glow; g.lineWidth = 6; g.beginPath(); for (const a of p.layers[i]) for (const b of p.layers[i + 1]) if (adj[a].includes(b)) { g.moveTo(PX(a), PY(a)); g.lineTo(PX(b), PY(b)); } g.stroke(); }
+      const last = p.layers[L - 1]; last.forEach(v => { g.fillStyle = glow; g.beginPath(); g.arc(PX(v), PY(v), 11, 0, 7); g.fill(); }); });
+    seeds.forEach(s => { g.strokeStyle = ink; g.lineWidth = 3; g.beginPath(); g.arc(PX(s), PY(s), 13, 0, 7); g.stroke(); });
+    g.fillStyle = neg; g.beginPath(); g.arc(PX(food), PY(food), 15, 0, 7); g.fill();
+    g.fillStyle = muted; g.font = font(700, 26); g.textAlign = 'center'; g.fillText('餌', PX(food), PY(food) - 26); g.fillText('種', PX(seeds[0]), PY(seeds[0]) + 40);
+    document.getElementById('vt').textContent = t;
+    document.getElementById('vres').innerHTML = paths ? 'アメーバの歩数 / 最短の段数　' + paths.map(p => `<b>${p.steps === null ? '止まる' : p.steps}</b>/${dist[p.s] < 0 ? '道なし' : dist[p.s]}`).join('　') : '濃さを広げています';
+  }
+  // ---------------- ボタン
+  const mk = (where, txt, f) => { const b = document.createElement('button'); b.textContent = txt; b.onclick = f; document.getElementById(where).append(b); return b; };
+  const kb = Object.keys(KINDS).map(k => mk('wl', k, () => { kind = k; setWalls(); restart(); kb.forEach(b => b.classList.toggle('on', b.textContent === kind)); }));
+  const bIgn = mk('opt', '壁を無視して広げる', () => { ignore = !ignore; bIgn.classList.toggle('on', ignore); restart(); });
+  const bK8 = mk('opt', 'k = 8', () => { K = 8n; bK8.classList.add('on'); bK4.classList.remove('on'); restart(); });
+  const bK4 = mk('opt', 'k = 4', () => { K = 4n; bK4.classList.add('on'); bK8.classList.remove('on'); restart(); });
+  bK8.classList.add('on');
+  function restart() { reset(); shown = 0; if (!playing) { while (t < T) step(); shown = 999; } draw(); }
+  cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width * cv.width - ox) / sc, y = (oy - (e.clientY - r.top) / r.height * cv.height) / sc;
+    let hit = false; for (let v = 0; v < n; v++) if ((X[v] - x) ** 2 + (Y[v] - y) ** 2 < 2.2 && v !== food && !seeds.includes(v)) { wall[v] = !wall[v]; hit = true; }
+    if (hit) { kind = ''; kb.forEach(b => b.classList.remove('on')); restart(); } });
+
+  // ---------------- 下：二分法とフィボナッチ
+  const A = Array.from({ length: 1000 }, (_, i) => (i + 1) * (i + 1));
+  function bisTrace(key) { let lo = 0, hi = A.length - 1; const tr = [[lo, hi]]; while (lo <= hi) { const mid = (lo + hi) >> 1; if (A[mid] < key) lo = mid + 1; else if (A[mid] > key) hi = mid - 1; else { tr.push([mid, mid]); break; } tr.push([lo, hi]); } return tr; }
+  function fibTrace(key) { const N = A.length; let f2 = 0, f1 = 1, f = 1; while (f < N) { f2 = f1; f1 = f; f = f2 + f1; } let off = -1; const tr = [[0, N - 1]];
+    while (f > 1) { let i = Math.min(off + f2, N - 1); if (A[i] < key) { f = f1; f1 = f2; f2 = f - f1; off = i; } else if (A[i] > key) { f = f2; f1 = f1 - f2; f2 = f - f1; } else { tr.push([i, i]); return tr; } tr.push([off + 1, Math.min(off + f, N - 1)]); }
+    tr.push([off + 1, off + 1]); return tr; }
+  const KEYS = [361, 250000, 998001, 4];
+  let key = KEYS[0], kstep = 0;
+  const cb = document.getElementById('cb'), gb = cb.getContext('2d');
+  function drawB() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), bg = css('--panel');
+    gb.fillStyle = bg; gb.fillRect(0, 0, cb.width, cb.height);
+    const x0 = 210, w = 1140, tb = bisTrace(key), tf = fibTrace(key);
+    [[tb, '二分法', pos, 70], [tf, 'フィボナッチ', neg, 220]].forEach(([tr, name, col, y]) => {
+      gb.fillStyle = muted; gb.font = font(700, 26); gb.textAlign = 'right'; gb.fillText(name, x0 - 20, y + 30);
+      gb.fillStyle = rule; gb.fillRect(x0, y + 14, w, 24);
+      const k = Math.min(kstep, tr.length - 1); const [lo, hi] = tr[k];
+      gb.fillStyle = col; gb.fillRect(x0 + lo / 1000 * w, y + 8, Math.max(4, (hi - lo + 1) / 1000 * w), 36);
+      gb.fillStyle = muted; gb.font = font(500, 20, 'm'); gb.textAlign = 'left'; gb.fillText(`残りの幅 ${hi - lo + 1}　比べた回数 ${k}${k === tr.length - 1 ? '（見つけた）' : ''}`, x0, y + 78);
+    });
+    const kx = x0 + (Math.sqrt(key) - 1) / 1000 * w; gb.strokeStyle = ink; gb.lineWidth = 3; gb.beginPath(); gb.moveTo(kx, 40); gb.lineTo(kx, 300); gb.stroke();
+    gb.fillStyle = ink; gb.font = font(700, 22, 'm'); gb.textAlign = 'center'; gb.fillText(`探す数 ${key}`, Math.min(Math.max(kx, 300), 1250), 336);
+    document.getElementById('vb1').textContent = `${tb.length - 1} 回`; document.getElementById('vb2').textContent = `${tf.length - 1} 回`;
+  }
+  const kbs = KEYS.map(k => mk('keys', String(k), () => { key = k; kstep = playing ? 0 : 99; kbs.forEach(b => b.classList.toggle('on', b.textContent === String(key))); drawB(); }));
+  kbs[0].classList.add('on');
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), acc = 0, accB = 0, hold = 0, holdB = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  document.getElementById('again').onclick = () => { restart(); kstep = 0; drawB(); };
+  setWalls(); kb[0].classList.add('on'); reset();
+  if (!playing) { while (t < T) step(); shown = 999; kstep = 99; }
+  draw(); drawB(); setPlay(playing);
+  function loop(tm) { const dt = Math.min(0.1, (tm - last) / 1000); last = tm;
+    if (playing) {
+      if (t < T) { for (let i = 0; i < 2; i++) step(); }
+      else { acc += dt * 12; while (acc >= 1) { acc -= 1; if (paths && shown < Math.max(...paths.map(p => p.layers.length))) shown++; else if (++hold > 40) { hold = 0; const names = Object.keys(KINDS).slice(0, 3); kind = names[(names.indexOf(kind) + 1) % 3]; setWalls(); kb.forEach(b => b.classList.toggle('on', b.textContent === kind)); reset(); shown = 0; } } }
+      accB += dt * 2.5; while (accB >= 1) { accB -= 1; if (kstep < 20) kstep++; else if (++holdB > 4) { holdB = 0; kstep = 0; key = KEYS[(KEYS.indexOf(key) + 1) % KEYS.length]; kbs.forEach(b => b.classList.toggle('on', b.textContent === String(key))); } }
+      draw(); drawB();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  window.__check = () => { const out = {}; for (const kd of ['隙間は上', '隙間は下', 'ジグザグ', 'ふさぐ']) { kind = kd; setWalls(); for (const ig of [false, true]) { ignore = ig; reset(); while (t < T) step(); out[kd + (ig ? '/無視' : '')] = paths.map(p => p.steps === null ? '止' : p.steps).join(',') + ' / ' + seeds.map(s => dist[s]).join(','); } } ignore = false;
+    K = 4n; kind = '隙間は上'; setWalls(); reset(); while (t < T) step(); out['k4'] = paths.map(p => p.steps === null ? '止' : p.steps).join(','); K = 8n;
+    out.fib = KEYS.map(k => [bisTrace(k).length - 1, fibTrace(k).length - 1]); out.n = n; return out; };
+})();
+</script>
+
+</body>
+</html>

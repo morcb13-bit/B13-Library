@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>二つ前から作る列</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 上：点 (s(n), s(n+1)) が二つ前から作る規則で動く。q = 1 で p を変えると、回る・まっすぐ・開くに分かれる。下：漸化式は (1, −p, q) との畳み込みで列が消えること */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --grn:#3d7d4f; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --grn:#7cc490; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.1rem);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-family:var(--display);font-weight:800;font-size:1.15rem;margin:0}
+.lead,.note{margin:0;color:var(--muted);line-height:1.7;max-width:66ch}
+.note{font-size:.9rem}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+canvas{width:100%;height:auto;max-width:100%}
+.eq{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;font-family:var(--mono);font-size:.95rem}
+.eq b{font-weight:600}
+.trail{font-family:var(--mono);font-size:.88rem;color:var(--muted);line-height:1.7}
+.controls,.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:700;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:7px 12px;cursor:pointer}
+.presets button{font-family:var(--mono);font-weight:500}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.trail b{color:var(--ink)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>二つ前から作る列</h1>
+    <p class="lead">s(n+2) = p·s(n+1) − s(n) で列を作り、続く二つ (s(n), s(n+1)) を点として置きます。点はいつも b² − p·a·b + a² = 1 の線の上を動きます。p² − 4 が負なら点は回って戻り、0 ならまっすぐ進み、正なら開いて遠ざかります。整数の p で戻るのは 3・4・6 歩だけで、Z[φ] の p にすると 5 歩と 10 歩が加わります。</p>
+  </header>
+
+  <section class="box" aria-label="点の動き">
+    <h2>点 (s(n), s(n+1)) の動き</h2>
+    <canvas id="cvA" width="1400" height="760"></canvas>
+    <div class="presets" id="pre"></div>
+    <div class="eq"><div>p = <b id="vp">1</b>　p² − 4 = <b id="vd">−3</b>　<b id="vk">回る</b></div><div>いまの点　<b id="vpt">(0, 1)</b></div><div>b² − p·a·b + a² = <b id="vf">1</b></div></div>
+    <div class="trail" id="trail"></div>
+    <p class="note">点の位置は作図用の小数です。列と変わらない量は、整数（Z[φ] では整数の組 a + bφ）で出しています。φ − 1 と φ の列は、整数の組のまま五歩・十歩で (0, 1) に戻ります。</p>
+  </section>
+
+  <section class="box" aria-label="畳み込み">
+    <h2>畳み込みで列が消える</h2>
+    <canvas id="cvB" width="1400" height="440"></canvas>
+    <div class="presets" id="preB"></div>
+    <div class="eq"><div>いまの一つ　<b id="vop">―</b></div></div>
+    <p class="note">畳み込みは「ずらして掛けて足す」ことです。短い列 (1, −p, q) を一つずつずらしながら、上の列と重なった所を掛けて足します。漸化式を満たす列は、先頭の数だけを残して 0 になります。逆に、残った先頭から漸化式で列を作り直せます。</p>
+  </section>
+  <div class="controls"><button id="play" class="on">停止</button></div>
+</div>
+
+<script>
+(() => {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const font = (w, s, f) => `${w} ${s}px ${f === 'm' ? '"IBM Plex Mono",monospace' : '"BIZ UDPGothic",sans-serif'}`;
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  // Z[φ] の数は整数の組 [a, b] = a + bφ。φ² = φ + 1
+  const zadd = (u, v) => [u[0] + v[0], u[1] + v[1]], zneg = u => [-u[0], -u[1]];
+  const zmul = ([a, b], [c, d]) => [a * c + b * d, a * d + b * c + b * d];
+  const zval = ([a, b]) => a + b * PHI;
+  const zs = ([a, b]) => { const m = v => (v < 0 ? '−' : '') + Math.abs(v);
+    if (b === 0) return m(a); const bb = b === 1 ? 'φ' : b === -1 ? '−φ' : m(b) + 'φ';
+    if (a === 0) return bb; return `${m(a)} ${b > 0 ? '+' : '−'} ${Math.abs(b) === 1 ? '' : Math.abs(b)}φ`; };
+  const zeq = (u, v) => u[0] === v[0] && u[1] === v[1];
+
+  // ---------------- 上：点の動き
+  const PRE = [
+    ['p = −1（3 歩）', [-1, 0], 2.2, 4], ['p = 0（4 歩）', [0, 0], 2.2, 5], ['p = 1（6 歩）', [1, 0], 2.2, 7],
+    ['p = φ − 1（5 歩）', [-1, 1], 2.2, 6], ['p = φ（10 歩）', [0, 1], 2.2, 11],
+    ['p = 2（まっすぐ）', [2, 0], 9, 9], ['p = 3（開く）', [3, 0], 10, 5],
+  ];
+  let sel = 2, pts = [], idx = 0;
+  function build() {
+    const p = PRE[sel][1], n = PRE[sel][3];
+    let x = [0, 0], y = [1, 0]; pts = [[x, y]];
+    for (let i = 1; i < n; i++) { [x, y] = [y, zadd(zmul(p, y), zneg(x))]; pts.push([x, y]); }
+    idx = 0;
+  }
+  const form = (p, a, b) => zadd(zadd(zmul(b, b), zneg(zmul(p, zmul(a, b)))), zmul(a, a));
+  const cA = document.getElementById('cvA'), gA = cA.getContext('2d');
+  function drawA() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow');
+    const W = cA.width, H = cA.height, cx = W / 2, cy = H / 2, R = PRE[sel][2], sc = (H / 2 - 40) / R;
+    const X = a => cx + a * sc, Y = b => cy - b * sc;
+    gA.clearRect(0, 0, W, H);
+    // 整数の格子
+    if (R <= 10) { gA.fillStyle = rule; for (let i = -Math.floor(W / 2 / sc); i <= W / 2 / sc; i++) for (let j = -Math.floor(R); j <= R; j++) { gA.beginPath(); gA.arc(X(i), Y(j), 3, 0, 7); gA.fill(); } }
+    gA.strokeStyle = rule; gA.lineWidth = 2; gA.beginPath(); gA.moveTo(0, cy); gA.lineTo(W, cy); gA.moveTo(cx, 0); gA.lineTo(cx, H); gA.stroke();
+    gA.fillStyle = muted; gA.font = font(500, 22, 'm'); gA.textAlign = 'right'; gA.fillText('s(n)', W - 10, cy - 12); gA.textAlign = 'left'; gA.fillText('s(n+1)', cx + 10, 26);
+    // 線 b² − p a b + a² = 1（作図用の小数）
+    const p = zval(PRE[sel][1]), D = p * p - 4;
+    gA.strokeStyle = D < -1e-9 ? pos : D > 1e-9 ? neg : ink; gA.lineWidth = 3; gA.globalAlpha = .55;
+    if (D < -1e-9) {            // 楕円：上の枝を右へ、下の枝を左へ、ひと筆で閉じる
+      const am = 2 / Math.sqrt(4 - p * p), N = 600, half = sg => { const o = []; for (let i = 0; i <= N; i++) { const a = -am + 2 * am * i / N, d = Math.max(0, p * p * a * a - 4 * (a * a - 1)); o.push([a, (p * a + sg * Math.sqrt(d)) / 2]); } return o; };
+      const ring = half(1).concat(half(-1).reverse()); gA.beginPath(); ring.forEach(([a, b], i) => i ? gA.lineTo(X(a), Y(b)) : gA.moveTo(X(a), Y(b))); gA.closePath(); gA.stroke();
+    } else for (const sg of [1, -1]) { gA.beginPath(); let first = true;
+      for (let a = -R * 3; a <= R * 3; a += R / 800) { const disc = p * p * a * a - 4 * (a * a - 1); if (disc < 0) { first = true; continue; } const b = (p * a + sg * Math.sqrt(disc)) / 2;
+        if (Math.abs(b) > R * 1.6) { first = true; continue; } first ? gA.moveTo(X(a), Y(b)) : gA.lineTo(X(a), Y(b)); first = false; } gA.stroke(); }
+    gA.globalAlpha = 1;
+    // 軌跡
+    gA.strokeStyle = ink; gA.lineWidth = 3; gA.beginPath();
+    pts.slice(0, idx + 1).forEach(([a, b], i) => { const P = [X(zval(a)), Y(zval(b))]; i ? gA.lineTo(...P) : gA.moveTo(...P); }); gA.stroke();
+    pts.slice(0, idx + 1).forEach(([a, b], i) => { gA.fillStyle = i === idx ? glow : ink; gA.beginPath(); gA.arc(X(zval(a)), Y(zval(b)), i === idx ? 14 : 8, 0, 7); gA.fill(); });
+    const [a, b] = pts[idx], f = form(PRE[sel][1], a, b);
+    document.getElementById('vp').textContent = zs(PRE[sel][1]);
+    const Dz = zadd(zmul(PRE[sel][1], PRE[sel][1]), [-4, 0]);
+    document.getElementById('vd').textContent = zs(Dz); document.getElementById('vk').textContent = D < -1e-9 ? '回る' : D > 1e-9 ? '開く' : 'まっすぐ';
+    document.getElementById('vpt').textContent = `(${zs(a)}, ${zs(b)})`; document.getElementById('vf').textContent = zs(f);
+    document.getElementById('trail').innerHTML = '列　' + pts.slice(0, idx + 2).map(([a], i) => i === idx ? `<b>${zs(a)}</b>` : zs(a)).join(', ') + (idx > 0 && zeq(pts[idx][0], [0, 0]) && zeq(pts[idx][1], [1, 0]) ? `　→ ${idx} 歩で (0, 1) に戻った` : '');
+  }
+  PRE.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { sel = i; build(); if (!playing) idx = pts.length - 1; mark(); drawA(); }; document.getElementById('pre').append(b); });
+  const mark = () => document.querySelectorAll('#pre button').forEach((b, i) => b.classList.toggle('on', i === sel));
+
+  // ---------------- 下：畳み込み
+  const fib = [0, 1]; while (fib.length < 12) fib.push(fib.at(-1) + fib.at(-2));
+  const pell = [0, 1]; while (pell.length < 12) pell.push(2 * pell.at(-1) + pell.at(-2));
+  const ff = Array.from({ length: 12 }, (_, k) => { let s = 0; for (let j = 0; j <= k; j++) s += fib[j] * fib[k - j]; return s; });
+  const PB = [['フィボナッチ × (1, −1, −1)', fib, [1, -1, -1]], ['ペル × (1, −2, −1)', pell, [1, -2, -1]], ['フィボナッチ×フィボナッチ × (1, −2, −1, 2, 1)', ff, [1, -2, -1, 2, 1]]];
+  let selB = 0, kB = 0;
+  const cB = document.getElementById('cvB'), gB = cB.getContext('2d');
+  function drawB() {
+    const ink = css('--ink'), muted = css('--muted'), rule = css('--rule'), pos = css('--pos'), neg = css('--neg'), glow = css('--glow'), cell = css('--cell');
+    gB.clearRect(0, 0, cB.width, cB.height);
+    const [, s, ker] = PB[selB], n = s.length, cw = 104, x0 = 90, ch = 76;
+    const out = Array.from({ length: n }, (_, k) => { let v = 0; for (let j = 0; j < ker.length; j++) if (k - j >= 0) v += ker[j] * s[k - j]; return v; });
+    const box = (X, Y, v, stroke, lw, show = true) => { gB.fillStyle = cell; gB.strokeStyle = stroke; gB.lineWidth = lw; gB.beginPath(); gB.roundRect(X + 4, Y + 4, cw - 8, ch - 12, 9); gB.fill(); gB.stroke();
+      if (show) { gB.fillStyle = v < 0 ? neg : ink; gB.font = font(600, v >= 1000 || v <= -100 ? 22 : 28, 'm'); gB.textAlign = 'center'; gB.fillText((v < 0 ? '−' : '') + Math.abs(v), X + cw / 2, Y + ch / 2 + 6); } };
+    const lab = (t, y) => { gB.fillStyle = muted; gB.font = font(700, 22); gB.textAlign = 'right'; gB.fillText(t, x0 - 14, y + ch / 2 + 4); };
+    lab('列', 20); lab('ずらす', 140); lab('結果', 300);
+    s.forEach((v, i) => box(x0 + i * cw, 20, v, i <= kB && i > kB - ker.length ? pos : rule, i <= kB && i > kB - ker.length ? 4 : 2));
+    ker.forEach((v, j) => { const i = kB - j; if (i < 0) return; box(x0 + i * cw, 140, v, glow, 3); });
+    out.forEach((v, i) => box(x0 + i * cw, 300, v, i === kB ? glow : rule, i === kB ? 5 : 2, i <= kB));
+    gB.fillStyle = muted; gB.font = font(500, 22, 'm'); gB.textAlign = 'center';
+    for (let i = 0; i < n; i++) gB.fillText(String(i), x0 + i * cw + cw / 2, 420);
+    const terms = ker.map((v, j) => kB - j >= 0 ? `(${v < 0 ? '−' : ''}${Math.abs(v)})×${s[kB - j]}` : null).filter(Boolean);
+    document.getElementById('vop').textContent = `${terms.join(' + ')} = ${out[kB] < 0 ? '−' : ''}${Math.abs(out[kB])}`;
+  }
+  PB.forEach(([t], i) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { selB = i; kB = playing ? 0 : 11; markB(); drawB(); }; document.getElementById('preB').append(b); });
+  const markB = () => document.querySelectorAll('#preB button').forEach((b, i) => b.classList.toggle('on', i === selB));
+
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = performance.now(), accA = 0, accB = 0, hold = 0, holdB = 0;
+  const playBtn = document.getElementById('play'); const setPlay = v => { playing = v; playBtn.textContent = v ? '停止' : '再生'; playBtn.classList.toggle('on', v); };
+  playBtn.onclick = () => setPlay(!playing);
+  build(); mark(); markB(); if (!playing) { idx = pts.length - 1; kB = 11; } drawA(); drawB(); setPlay(playing);
+  function loop(tm) { const dt = (tm - last) / 1000; last = tm;
+    if (playing) {
+      accA += dt * 1.6; while (accA >= 1) { accA -= 1; if (idx < pts.length - 1) idx++; else if (++hold > 4) { hold = 0; sel = (sel + 1) % PRE.length; build(); mark(); } }
+      accB += dt * 1.2; while (accB >= 1) { accB -= 1; if (kB < 11) kB++; else if (++holdB > 3) { holdB = 0; kB = 0; selB = (selB + 1) % PB.length; markB(); } }
+      drawA(); drawB();
+    }
+    requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

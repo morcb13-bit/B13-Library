@@ -38,6 +38,7 @@ Zennの本『Nature Knows Only Addition ― 動く図で読む足し算だけの
 | 第5部　形・数える・探す | 17 | 四元数とイコシアン | b13_quat.py |
 | | 18 | 数える：パスカルの三角形・整数のくじ・並べ替えの判定 | b13_count.py、b13_wave.py |
 | | 19 | 探す：二分法と最短路（アメーバ） | b13_search.py |
+| | 20 | 不斉合成：右と左の一個差 | b13_chiral.py |
 | 付録 | | 関数の索引と在処の表 | |
 
 ```bash
@@ -89,4 +90,5 @@ claude plugin update b13-library@morc-b13
 
 ## ライセンス
 
+MIT License（`LICENSE` を参照）
 MIT License（`LICENSE` を参照）

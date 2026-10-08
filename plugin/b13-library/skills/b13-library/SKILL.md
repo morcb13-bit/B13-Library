@@ -52,6 +52,7 @@ python3 -c "from b13_zphi import norm; print(norm((5,1)))"
 | 17 | 四元数とイコシアン | b13_quat.py | qmul conj norm order rotate hurwitz24 icosian120 closed | ch17_icosian |
 | 18 | 数える：パスカル・整数のくじ・並べ替えの判定 | b13_count.py・b13_wave.py | pascal_row diag_sums within_one Kuji drop gap shuffle perm_test／penrose_floor wave balls profile | ch18_wave_slit |
 | 19 | 探す：二分法と最短路（アメーバ） | b13_search.py | bisect_isqrt bisect_root fib_search bisect_search hops scent climb | ch19_amoeba |
+| 20 | 不斉合成：右と左の一個差 | b13_chiral.py | det3 hand mirror turns side triangle vessel ring_step ring | ch20_chiral |
 | 付録 | 関数の索引と在処の表 | ― | ― | ― |
 
 章の本文は `references/` の同名ファイル（intro.md, ch01-balanced.md … ch19-search.md、付録は appendix.md）。関数がどの章のどのファイルにあるかは appendix.md の索引で引ける。各章は「B13 の言葉で → 動く図 → コード → 実行例 → 在処」の順で書いてある。新しい章や記事を書くときもこの順に揃える。

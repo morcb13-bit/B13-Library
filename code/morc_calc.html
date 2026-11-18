@@ -1,0 +1,425 @@
+<!doctype html>
+<!-- morc_b13 研究所 / B13-Library（https://github.com/morcb13-bit/B13-Library）── MIT License：自由に使い、改変し、配ってよい -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>morc 電卓</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 式を入れると、整数と足し算だけで答えを出す電卓。数は分数のまま持つので 0.1+0.2 は 0.3 ちょうど */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff; --ok:#2d7a4b;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; --ok:#6cc48e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; --ok:#6cc48e; color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:14px;padding-block:18px 28px}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,4.5vw,2.2rem);margin:0;letter-spacing:.02em}
+.lead{margin:2px 0 0;color:var(--muted);line-height:1.7}
+.calc{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:12px;display:grid;gap:10px}
+.screen{background:var(--cell);border:1.5px solid var(--rule);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+#f{font:inherit;font-family:var(--mono);font-size:18px;width:100%;border:0;background:transparent;color:var(--ink);padding:4px 0;outline:none}
+.screen:focus-within{border-color:var(--pos)}
+.ans{font-family:var(--mono);font-weight:600;font-size:clamp(1.3rem,4.6vw,1.9rem);overflow-wrap:anywhere;line-height:1.3;min-height:1.3em}
+.ans .eq{color:var(--muted);font-weight:500;margin-right:.3em}
+.sub{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85rem;color:var(--muted);align-items:center}
+.sub code{font-family:var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.tag{font-size:.75rem;font-weight:700;border-radius:999px;padding:2px 9px;border:1.5px solid currentColor}
+.tag.ok{color:var(--ok)}.tag.ap{color:var(--neg)}
+.err{color:var(--neg);font-weight:700;font-size:.9rem;min-height:1.2em}
+.count{font-size:.85rem;color:var(--muted);border-top:1px dashed var(--rule);padding-top:6px}
+.count b{font-family:var(--mono);color:var(--ink)}
+.pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.fns{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:5px}
+button{font:inherit;font-weight:700;color:var(--ink);background:var(--cell);border:1px solid var(--rule);border-radius:9px;padding:8px 4px;cursor:pointer;min-height:46px;touch-action:manipulation}
+button:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+.pad .op{background:var(--panel)}
+.pad .eqk{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pad .clr{color:var(--neg)}
+.fns button{font-family:var(--mono);font-size:.8rem;font-weight:600;min-height:40px;color:var(--pos)}
+.opts{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:.85rem;color:var(--muted)}
+select{font:inherit;padding:6px;border-radius:8px;border:1px solid var(--rule);background:var(--cell);color:var(--ink)}
+details{font-size:.85rem;color:var(--muted)}
+summary{cursor:pointer;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0;align-items:center}.chips .pt{margin:0 2px}.chips em{font-style:normal;margin-left:6px}
+.chips i{font-style:normal;font-family:var(--mono);font-size:.75rem;min-width:22px;height:22px;display:inline-grid;place-items:center;border-radius:5px;border:1px solid var(--rule);padding:0 3px}
+.chips i.p{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+.chips i.n{background:var(--neg);border-color:var(--neg);color:var(--bg)}
+.hist{display:grid;gap:4px;max-height:220px;overflow:auto}
+.hist button{min-height:0;text-align:left;font-family:var(--mono);font-weight:500;font-size:.85rem;padding:6px 8px;display:flex;justify-content:space-between;gap:12px}
+.hist button span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.text{line-height:1.8;font-size:.95rem}
+.text h2{font-family:var(--display);font-size:1.15rem;margin:12px 0 2px}
+.text p{margin:6px 0}
+.text table{border-collapse:collapse;font-size:.85rem;width:100%}
+.text td{border-top:1px solid var(--rule);padding:4px 6px;vertical-align:top}
+.text td:first-child{font-family:var(--mono);white-space:nowrap;color:var(--pos)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>morc 電卓</h1>
+<p class="lead" style="margin:0">『Nature Knows Only Addition』付録 ── ブラウザで動く、足し算だけの関数電卓</p>
+<p class="lead">Excel と同じ書き方で式を入れると、整数の足し算だけで答えを出します。数は分数のまま持つので、割り算の答えも正確です。</p>
+</header>
+<section class="calc" aria-label="電卓">
+<div class="screen">
+<input id="f" type="text" value="=0.1+0.2" spellcheck="false" autocomplete="off" aria-label="式">
+<div class="ans" id="ans" aria-live="polite"></div>
+<div class="sub" id="sub"></div>
+<div class="err" id="err"></div>
+<div class="count">答えを出すまでの足し算 <b id="na">0</b> 回 ・ 大小の比較 <b id="nc">0</b> 回（10進の小数・平衡進数への書き換えは数えない）</div>
+</div>
+<div class="pad">
+<button class="clr" data-k="C">C</button><button data-k="(">(</button><button data-k=")">)</button><button class="op" data-k="BS" aria-label="一字消す">⌫</button><button class="op" data-k="/">÷</button>
+<button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button class="op" data-k="^">^</button><button class="op" data-k="*">×</button>
+<button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button class="op" data-k="%">%</button><button class="op" data-k="-">−</button>
+<button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button class="op" data-k=",">,</button><button class="op" data-k="+">＋</button>
+<button data-k="0">0</button><button data-k="00">00</button><button data-k=".">.</button><button class="op" data-k="ANS">答</button><button class="eqk" data-k="=">＝</button>
+</div>
+<div class="fns">
+<button data-k="SQRT(">SQRT</button><button data-k="PI()">PI</button><button data-k="EXP(">EXP</button><button data-k="LN(">LN</button><button data-k="LOG10(">LOG10</button>
+<button data-k="SIN(">SIN</button><button data-k="COS(">COS</button><button data-k="TAN(">TAN</button><button data-k="RADIANS(">RADIANS</button><button data-k="ROUND(">ROUND</button>
+<button data-k="INT(">INT</button><button data-k="ABS(">ABS</button><button data-k="MOD(">MOD</button><button data-k="QUOTIENT(">QUOTIENT</button><button data-k="GCD(">GCD</button>
+<button data-k="LCM(">LCM</button><button data-k="FACT(">FACT</button><button data-k="COMBIN(">COMBIN</button><button data-k="POWER(">POWER</button><button data-k="SUM(">SUM</button>
+</div>
+<div class="opts">
+<label>小数の桁数 <select id="dig"><option>10</option><option selected>20</option><option>30</option><option>50</option><option>100</option></select></label>
+<span>Enter または ＝ で確定して履歴に残します</span>
+</div>
+<details id="balw"><summary>平衡進数で見る</summary>
+<div>平衡3進</div><div class="chips" id="b3"></div>
+<div>平衡13進</div><div class="chips" id="b13"></div>
+</details>
+<details open><summary>履歴</summary><div class="hist" id="hist"></div></details>
+</section>
+<section class="text">
+<h2>この電卓のしくみ</h2>
+<p>数はすべて「整数 ÷ 整数」の分数のまま持ちます。たとえば 0.1 は 1/10、0.2 は 1/5 です。0.1 + 0.2 を足すと 3/10 になるので、答えはちょうど 0.3 です（浮動小数で計算する多くの電卓やプログラムでは 0.30000000000000004 になります）。</p>
+<p>中でしている操作は、足すことと大小を比べることだけです。画面の回数は答えの分数を出すまでの分で、10 進の小数や平衡進数に書き換える分は入れていません。小数は、負の数も 0 の向きに切り捨てます。引き算は符号を返して足し、掛け算は自分自身を足した倍々のはしごから必要な段を拾って足し、割り算は割る数のはしごを上の段から引けるだけ引きます。分数は最後に互除法で約分します。</p>
+<p>平衡進数の欄には、上に出した答えと同じ数を、平衡3進（−1・0・+1）と平衡13進（−6〜+6）で書きます。小数のある答えは、平衡進数にも小数点を付け、指定の桁数と同じ細かさまで書きます。</p>
+<p>√2 や π、EXP・LN・SIN のように終わりのない数は、指定した桁数より 12 桁多く整数で計算してから打ち切り、「近似」の印を付けます。式の中に近似が一つでも入ると、答えも近似になります。分数で表せる答えには「正確」の印が付き、小数が繰り返すときは繰り返しの部分を（ ）で示します。</p>
+<h2>式の書き方（Excel と同じ）</h2>
+<table>
+<tr><td>= は付けても付けなくても可</td><td>=1+2 も 1+2 も同じ</td></tr>
+<tr><td>+ − * / ^ %</td><td>足す・引く・掛ける・割る・べき乗・百分率（50% は 0.5）。× ÷ も使えます</td></tr>
+<tr><td>-2^2 は 4</td><td>Excel と同じく、先頭のマイナスはべき乗より先に結びつきます。2^3^2 は左から計算して 64</td></tr>
+<tr><td>関数(引数, 引数)</td><td>SQRT PI EXP LN LOG10 LOG SIN COS TAN RADIANS DEGREES ROUND ROUNDUP ROUNDDOWN INT ABS MOD QUOTIENT GCD LCM FACT COMBIN POWER SUM PRODUCT AVERAGE</td></tr>
+<tr><td>角度</td><td>SIN・COS・TAN はラジアン。度で入れるときは SIN(RADIANS(30))</td></tr>
+<tr><td>答</td><td>直前の答えを式に入れます</td></tr>
+</table>
+</section>
+</div>
+<script>
+// morc 電卓の芯 ── 数はすべて「整数 ÷ 整数」の分数で持ち、操作は足し算と大小の比較だけ
+const C = { add: 0, cmp: 0 };
+function reset() { C.add = 0; C.cmp = 0; }
+function add(a, b) { C.add++; return a + b; }
+function neg(a) { return -a; }
+function sub(a, b) { return add(a, neg(b)); }
+function ge(a, b) { C.cmp++; return a >= b; }
+function isNeg(a) { C.cmp++; return a < 0n; }
+function absv(a) { return isNeg(a) ? neg(a) : a; }
+function ladder(x, limit) { const r = [x]; while (true) { const n = add(r[r.length - 1], r[r.length - 1]); if (!ge(limit, n)) break; r.push(n); } return r; }
+function mul(a, b) {
+  const sa = isNeg(a), sb = isNeg(b); if (sa) a = neg(a); if (sb) b = neg(b);
+  if (a === 0n || b === 0n) return 0n;
+  if (!ge(a, b)) { const t = a; a = b; b = t; }          // 段の少ない方で拾う
+  const ones = ladder(1n, b), rungs = [a];
+  for (let i = 1; i < ones.length; i++) rungs.push(add(rungs[i - 1], rungs[i - 1]));
+  let rest = b, acc = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = add(acc, rungs[i]); }
+  return sa !== sb ? neg(acc) : acc;
+}
+// 床割り：余りは 0 以上
+function divmod(a, b) {
+  if (b === 0n) throw new Error('0 で割ることはできません');
+  const sa = isNeg(a), sb = isNeg(b); let A = sa ? neg(a) : a; const B = sb ? neg(b) : b;
+  let q = 0n;
+  if (ge(A, B)) {
+    const rungs = ladder(B, A), ones = [1n];
+    for (let i = 1; i < rungs.length; i++) ones.push(add(ones[i - 1], ones[i - 1]));
+    for (let i = rungs.length - 1; i >= 0; i--) if (ge(A, rungs[i])) { A = sub(A, rungs[i]); q = add(q, ones[i]); }
+  }
+  if (sa) { if (A !== 0n) { q = add(q, 1n); A = sub(B, A); } q = neg(q); }
+  if (sb) q = neg(q);
+  return [q, A];
+}
+const idiv = (a, b) => divmod(a, b)[0];
+function times10(x) { const x2 = add(x, x), x4 = add(x2, x2), x8 = add(x4, x4); return add(x8, x2); }
+const P10 = [1n];
+function pow10(n) { while (P10.length <= n) P10.push(times10(P10[P10.length - 1])); return P10[n]; }
+function isqrt(n) {
+  if (isNeg(n)) throw new Error('負の数の平方根はとれません');
+  if (n === 0n) return 0n;
+  const ones = ladder(1n, n); let r = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) { const t = add(r, ones[i]); if (ge(n, mul(t, t))) r = t; }
+  return r;
+}
+function igcd(a, b) { a = absv(a); b = absv(b); while (b !== 0n) { const r = divmod(a, b)[1]; a = b; b = r; } return a; }
+
+// ── 分数 { n, d, ap }：d は正、約分済み。ap は「近似（無理数を桁で打ち切った）」の印
+function Q(n, d = 1n, ap = false) {
+  if (d === 0n) throw new Error('0 で割ることはできません');
+  if (isNeg(d)) { n = neg(n); d = neg(d); }
+  const g = igcd(n, d); if (g !== 1n && g !== 0n) { n = idiv(n, g); d = idiv(d, g); }
+  return { n, d, ap };
+}
+const isInt = x => x.d === 1n;
+const qadd = (x, y) => Q(add(mul(x.n, y.d), mul(y.n, x.d)), mul(x.d, y.d), x.ap || y.ap);
+const qneg = x => ({ n: neg(x.n), d: x.d, ap: x.ap });
+const qsub = (x, y) => qadd(x, qneg(y));
+const qmul = (x, y) => Q(mul(x.n, y.n), mul(x.d, y.d), x.ap || y.ap);
+const qdiv = (x, y) => { if (y.n === 0n) throw new Error('0 で割ることはできません'); return Q(mul(x.n, y.d), mul(x.d, y.n), x.ap || y.ap); };
+const qcmp = (x, y) => { const a = mul(x.n, y.d), b = mul(y.n, x.d); return ge(a, b) ? (ge(b, a) ? 0 : 1) : -1; };
+const qfloor = x => idiv(x.n, x.d);
+function qpowInt(x, e) {
+  let negE = isNeg(e); if (negE) e = neg(e);
+  if (e === 0n) return Q(1n);
+  const ones = ladder(1n, e), sq = [x];
+  for (let i = 1; i < ones.length; i++) sq.push(qmul(sq[i - 1], sq[i - 1]));
+  let rest = e, acc = Q(1n);
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = qmul(acc, sq[i]); }
+  return negE ? qdiv(Q(1n), acc) : acc;
+}
+
+// ── 無理数の関数：S = 10^P を掛けた整数（固定小数）で計算し、最後に分数 /S へ戻して「近似」の印を付ける
+let P = 30;
+function setPrec(digits) { P = digits + 12; }
+const S = () => pow10(P);
+const toFix = x => idiv(mul(x.n, S()), x.d);
+const fromFix = f => Q(f, S(), true);
+const fmul = (a, b) => idiv(mul(a, b), S());
+const fdiv = (a, b) => idiv(mul(a, S()), b);
+function atanInvFix(x) { const x2 = mul(x, x); let term = idiv(S(), x), sum = term, k = 1n, sg = -1; while (term !== 0n) { term = idiv(term, x2); const t = idiv(term, add(add(k, k), 1n)); sum = sg < 0 ? sub(sum, t) : add(sum, t); sg = -sg; k = add(k, 1n); } return sum; }
+function piFix() { const a = atanInvFix(5n), b = atanInvFix(239n); let a16 = a; for (let i = 0; i < 4; i++) a16 = add(a16, a16); const b4 = add(add(b, b), add(b, b)); return sub(a16, b4); }
+function expFix(f) {            // e^f（f は固定小数）
+  const negF = isNeg(f); if (negF) f = neg(f);
+  // 半分にしてから二乗を戻す：f を 1 未満に落とす
+  let halv = 0; while (ge(f, S())) { f = idiv(f, 2n); halv++; }
+  let term = S(), sum = S(), k = 1n;
+  while (term !== 0n) { term = idiv(fmul(term, f), k); sum = add(sum, term); k = add(k, 1n); }
+  for (let i = 0; i < halv; i++) sum = fmul(sum, sum);
+  return negF ? fdiv(S(), sum) : sum;
+}
+function atanhSeriesFix(z) {    // atanh(z) = z + z^3/3 + z^5/5 + …（|z| < 1）
+  const z2 = fmul(z, z); let term = z, sum = z, k = 1n;
+  while (term !== 0n) { term = fmul(term, z2); const t = idiv(term, add(add(k, k), 1n)); sum = add(sum, t); k = add(k, 1n); }
+  return sum;
+}
+function lnFix(x) {             // x は正の分数
+  if (!(x.n > 0n)) throw new Error('LN は正の数だけ');
+  C.cmp++;
+  // x = 2^k × m（1 ≤ m < 2）に分ける
+  let k = 0n, m = x; const two = Q(2n), one = Q(1n);
+  while (qcmp(m, two) >= 0) { m = qdiv(m, two); k = add(k, 1n); }
+  while (qcmp(m, one) < 0) { m = qmul(m, two); k = sub(k, 1n); }
+  const z = qdiv(qsub(m, one), qadd(m, one));
+  const lnm = add(atanhSeriesFix(toFix(z)), atanhSeriesFix(toFix(z)));
+  const a3 = atanhSeriesFix(idiv(S(), 3n)), ln2 = add(a3, a3);
+  return add(lnm, mul(ln2, k));
+}
+function sinCosFix(f) {         // f を 2π で折り返してから級数
+  const pi = piFix(), tp = add(pi, pi);
+  f = divmod(f, tp)[1];
+  if (ge(f, pi)) f = sub(f, tp);
+  const f2 = fmul(f, f);
+  let ts = f, s = f, tc = S(), c = S(), k = 1n;
+  while (ts !== 0n || tc !== 0n) {
+    const k2 = add(k, k);
+    ts = neg(idiv(fmul(ts, f2), mul(k2, add(k2, 1n))));
+    tc = neg(idiv(fmul(tc, f2), mul(sub(k2, 1n), k2)));
+    s = add(s, ts); c = add(c, tc); k = add(k, 1n);
+  }
+  return [s, c];
+}
+
+// ── 関数表（Excel の名前）
+function needInt(x, nm) { if (!isInt(x)) throw new Error(nm + ' には整数を入れてください'); return x.n; }
+function args(a, lo, hi, nm) { if (a.length < lo || a.length > hi) throw new Error(nm + ' の引数の数が違います'); }
+function roundTo(x, digits, mode) {        // mode: 0 四捨五入（0 から遠い側）, -1 切り捨て, 1 切り上げ（0 から遠い側）
+  const sc = digits >= 0n ? Q(pow10(Number(digits))) : qdiv(Q(1n), Q(pow10(Number(neg(digits)))));
+  const y = qmul(x, sc), sgn = isNeg(y.n), ay = sgn ? qneg(y) : y;
+  let fl = qfloor(ay); const fr = qsub(ay, Q(fl));
+  if (mode === 0 && qcmp(fr, Q(1n, 2n)) >= 0) fl = add(fl, 1n);
+  if (mode === 1 && fr.n !== 0n) fl = add(fl, 1n);
+  const r = qdiv(Q(sgn ? neg(fl) : fl), sc); r.ap = x.ap; return r;
+}
+const FN = {
+  SQRT(a) { args(a, 1, 1, 'SQRT'); const x = a[0]; if (isNeg(x.n)) throw new Error('負の数の平方根はとれません');
+    const rn = isqrt(x.n), rd = isqrt(x.d);
+    if (!x.ap && mul(rn, rn) === x.n && mul(rd, rd) === x.d) return Q(rn, rd);
+    return Q(isqrt(mul(mul(x.n, x.d), mul(S(), S()))), mul(x.d, S()), true); },
+  POWER(a) { args(a, 2, 2, 'POWER'); return pow(a[0], a[1]); },
+  PI(a) { args(a, 0, 0, 'PI'); return fromFix(piFix()); },
+  EXP(a) { args(a, 1, 1, 'EXP'); return fromFix(expFix(toFix(a[0]))); },
+  LN(a) { args(a, 1, 1, 'LN'); return fromFix(lnFix(a[0])); },
+  LOG10(a) { args(a, 1, 1, 'LOG10'); return fromFix(fdiv(lnFix(a[0]), lnFix(Q(10n)))); },
+  LOG(a) { args(a, 1, 2, 'LOG'); const b = a[1] || Q(10n); return fromFix(fdiv(lnFix(a[0]), lnFix(b))); },
+  SIN(a) { args(a, 1, 1, 'SIN'); return fromFix(sinCosFix(toFix(a[0]))[0]); },
+  COS(a) { args(a, 1, 1, 'COS'); return fromFix(sinCosFix(toFix(a[0]))[1]); },
+  TAN(a) { args(a, 1, 1, 'TAN'); const [s, c] = sinCosFix(toFix(a[0])); if (c === 0n) throw new Error('TAN が無限大になります'); return fromFix(fdiv(s, c)); },
+  RADIANS(a) { args(a, 1, 1, 'RADIANS'); return qdiv(qmul(a[0], fromFix(piFix())), Q(180n)); },
+  DEGREES(a) { args(a, 1, 1, 'DEGREES'); return qdiv(qmul(a[0], Q(180n)), fromFix(piFix())); },
+  ABS(a) { args(a, 1, 1, 'ABS'); return isNeg(a[0].n) ? qneg(a[0]) : a[0]; },
+  INT(a) { args(a, 1, 1, 'INT'); return Q(qfloor(a[0]), 1n, a[0].ap); },
+  MOD(a) { args(a, 2, 2, 'MOD'); const [x, y] = a; if (y.n === 0n) throw new Error('0 で割ることはできません'); return qsub(x, qmul(y, Q(qfloor(qdiv(x, y))))); },
+  QUOTIENT(a) { args(a, 2, 2, 'QUOTIENT'); const q = qdiv(a[0], a[1]); const t = isNeg(q.n) ? neg(qfloor(qneg(q))) : qfloor(q); return Q(t); },
+  GCD(a) { if (!a.length) throw new Error('GCD の引数がありません'); let g = 0n; for (const x of a) g = igcd(g, needInt(x, 'GCD')); return Q(g); },
+  LCM(a) { if (!a.length) throw new Error('LCM の引数がありません'); let l = 1n; for (const x of a) { const v = absv(needInt(x, 'LCM')); if (v === 0n) return Q(0n); l = idiv(mul(l, v), igcd(l, v)); } return Q(l); },
+  FACT(a) { args(a, 1, 1, 'FACT'); const n = needInt(a[0], 'FACT'); if (isNeg(n)) throw new Error('FACT は 0 以上'); if (n > 3000n) throw new Error('FACT は 3000 まで'); let f = 1n; for (let k = 2n; ge(n, k); k = add(k, 1n)) f = mul(f, k); return Q(f); },
+  COMBIN(a) { args(a, 2, 2, 'COMBIN'); const n = needInt(a[0], 'COMBIN'), k = needInt(a[1], 'COMBIN'); if (isNeg(k) || !ge(n, k)) throw new Error('COMBIN は 0 ≤ k ≤ n'); let r = 1n, i = 1n; for (; ge(k, i); i = add(i, 1n)) r = idiv(mul(r, add(sub(n, k), i)), i); return Q(r); },
+  ROUND(a) { args(a, 1, 2, 'ROUND'); return roundTo(a[0], a[1] ? needInt(a[1], 'ROUND') : 0n, 0); },
+  ROUNDDOWN(a) { args(a, 1, 2, 'ROUNDDOWN'); return roundTo(a[0], a[1] ? needInt(a[1], 'ROUNDDOWN') : 0n, -1); },
+  ROUNDUP(a) { args(a, 1, 2, 'ROUNDUP'); return roundTo(a[0], a[1] ? needInt(a[1], 'ROUNDUP') : 0n, 1); },
+  SUM(a) { return a.reduce((s, x) => qadd(s, x), Q(0n)); },
+  PRODUCT(a) { return a.reduce((s, x) => qmul(s, x), Q(1n)); },
+  AVERAGE(a) { if (!a.length) throw new Error('AVERAGE の引数がありません'); return qdiv(FN.SUM(a), Q(BigInt(a.length))); },
+};
+function pow(x, y) {
+  if (isInt(y) && !y.ap) { if (x.n === 0n && isNeg(y.n)) throw new Error('0 で割ることはできません'); if (absv(y.n) > 100000n) throw new Error('指数が大きすぎます'); return qpowInt(x, y.n); }
+  if (!y.ap && y.d === 2n) { return FN.SQRT([qpowInt(x, y.n)]); }
+  if (isNeg(x.n) || x.n === 0n) throw new Error('負の数・0 の小数乗は計算できません');
+  return fromFix(expFix(fmul(lnFix(x), toFix(y))));
+}
+
+// ── 式を読む（Excel の書き方）：= は省略可、^ はべき乗、% は百分の一、単項の − は ^ より先に結びつく
+function tokenize(s) {
+  s = s.normalize('NFKC').replace(/×/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').trim();
+  if (s.startsWith('=')) s = s.slice(1);
+  const out = []; let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9.]/.test(c)) { let j = i; while (j < s.length && /[0-9.]/.test(s[j])) j++; const t = s.slice(i, j);
+      if (!/^(\d+\.?\d*|\.\d+)$/.test(t)) throw new Error('数の書き方が読めません: ' + t);
+      out.push({ t: 'num', v: t }); i = j; continue; }
+    if (/[A-Za-z]/.test(c)) { let j = i; while (j < s.length && /[A-Za-z0-9]/.test(s[j])) j++; out.push({ t: 'id', v: s.slice(i, j).toUpperCase() }); i = j; continue; }
+    if ('+-*/^%(),'.includes(c)) { out.push({ t: c }); i++; continue; }
+    throw new Error('読めない文字があります: ' + c);
+  }
+  return out;
+}
+function numQ(t) { const [a, b = ''] = t.split('.'); const d = pow10(b.length); return Q(BigInt((a || '0') + b), d); }
+function parse(src) {
+  const tk = tokenize(src); let p = 0;
+  const peek = () => tk[p], eat = t => { if (!tk[p] || tk[p].t !== t) throw new Error(`「${t}」があるはずの所で式が終わっています`); return tk[p++]; };
+  function expr() { let x = term(); while (peek() && (peek().t === '+' || peek().t === '-')) { const o = tk[p++].t; const y = term(); x = { o, a: x, b: y }; } return x; }
+  function term() { let x = power(); while (peek() && (peek().t === '*' || peek().t === '/')) { const o = tk[p++].t; const y = power(); x = { o, a: x, b: y }; } return x; }
+  function power() { let x = unary(); while (peek() && peek().t === '^') { p++; const y = unary(); x = { o: '^', a: x, b: y }; } return x; }   // Excel は左から
+  function unary() { if (peek() && (peek().t === '-' || peek().t === '+')) { const o = tk[p++].t; const x = unary(); return o === '-' ? { o: 'neg', a: x } : x; } return postfix(); }
+  function postfix() { let x = atom(); while (peek() && peek().t === '%') { p++; x = { o: '%', a: x }; } return x; }
+  function atom() {
+    const t = tk[p++]; if (!t) throw new Error('式が途中で終わっています');
+    if (t.t === 'num') return { o: 'num', v: t.v };
+    if (t.t === '(') { const x = expr(); eat(')'); return x; }
+    if (t.t === 'id') { if (!FN[t.v]) throw new Error('知らない関数です: ' + t.v); eat('('); const a = []; if (peek() && peek().t !== ')') { a.push(expr()); while (peek() && peek().t === ',') { p++; a.push(expr()); } } eat(')'); return { o: 'fn', f: t.v, a }; }
+    throw new Error('ここに「' + t.t + '」は置けません');
+  }
+  const x = expr(); if (p < tk.length) throw new Error('式の終わりに余分なものがあります: ' + (tk[p].v || tk[p].t)); return x;
+}
+function evalT(n) {
+  switch (n.o) {
+    case 'num': return numQ(n.v);
+    case '+': return qadd(evalT(n.a), evalT(n.b));
+    case '-': return qsub(evalT(n.a), evalT(n.b));
+    case '*': return qmul(evalT(n.a), evalT(n.b));
+    case '/': return qdiv(evalT(n.a), evalT(n.b));
+    case '^': return pow(evalT(n.a), evalT(n.b));
+    case 'neg': return qneg(evalT(n.a));
+    case '%': return qdiv(evalT(n.a), Q(100n));
+    case 'fn': return FN[n.f](n.a.map(evalT));
+  }
+}
+function calc(src, digits) { P10.length = 1; setPrec(digits); reset(); const v = evalT(parse(src)); return { v, add: C.add, cmp: C.cmp }; }
+
+// ── 10 進の小数にする（表示のため。ここでも割り算は足し算のはしご）
+function toDecimal(x, N) {
+  const sg = isNeg(x.n); const n = sg ? neg(x.n) : x.n;
+  const [ip, r] = divmod(n, x.d);
+  if (r === 0n) return { s: (sg ? '-' : '') + ip.toString(), exact: !x.ap };
+  const [fp, r2] = divmod(mul(r, pow10(N)), x.d);
+  let f = fp.toString().padStart(N, '0'); let exact = r2 === 0n && !x.ap;
+  if (exact) f = f.replace(/0+$/, '');
+  return { s: (sg ? '-' : '') + ip.toString() + '.' + f, exact };
+}
+function balanced(n, B) {
+  if (n === 0n) return [0]; const half = idiv(B, 2n), out = [];
+  while (n !== 0n) { let [q, r] = divmod(n, B); if (!ge(half, r)) { r = sub(r, B); q = add(q, 1n); } out.push(Number(r)); n = q; }
+  return out.reverse();
+}
+{
+const $=id=>document.getElementById(id), f=$('f');
+let last=null, lastStr='';
+// 繰り返す小数を見つける（表示のため。長さは 600 桁まで探す）
+function repeating(x){
+  if(x.ap||x.d===1n)return null;
+  let d=x.d,t=d;while(t%2n===0n)t/=2n;while(t%5n===0n)t/=5n;if(t===1n)return null;
+  const sg=x.n<0n?'-':'',n=x.n<0n?-x.n:x.n,ip=n/d;let r=n%d;const seen=new Map(),dg=[];
+  while(r!==0n&&!seen.has(r)&&dg.length<600){seen.set(r,dg.length);r*=10n;dg.push((r/d).toString());r%=d}
+  if(!seen.has(r))return null;const k=seen.get(r);
+  return sg+ip+'.'+dg.slice(0,k).join('')+'('+dg.slice(k).join('')+')';
+}
+// 答え v（分数）を、小数点つきの平衡B進で書く。B^k ≥ 10^N となる k 桁まで出して丸める（ここは観察者側の表示）
+function balPoint(v,N,B){
+  if(v.d===1n&&!v.ap)return [balanced(v.n,B),0];
+  let k=0,Bk=1n;const T=10n**BigInt(N);while(Bk<T){Bk*=B;k++}
+  const num=v.n*Bk,neg=num<0n,an=neg?-num:num;let q=an/v.d;if((an%v.d)*2n>=v.d)q+=1n;
+  let d=balanced(neg?-q:q,B);while(d.length<=k)d.unshift(0);
+  return [d,k];
+}
+function chips(el,d,k,B){const ip=d.length-k,show=d.slice(0,Math.max(120,ip));
+  el.innerHTML=show.map((x,i)=>(k&&i===ip?'<b class="pt">.</b>':'')+`<i class="${x>0?'p':x<0?'n':''}">${B===3?(x>0?'+':x<0?'−':'0'):(x>0?'+'+x:x<0?'−'+(-x):'0')}</i>`).join('')+`<em>${d.length>show.length?'…':''} ${k?'整数 '+ip+' 桁・小数 '+k+' 桁':d.length+' 桁'}</em>`}
+function show(commit){
+  const src=f.value.replace(/答/g,lastStr?'('+lastStr+')':'');
+  $('err').textContent='';
+  if(!src.replace(/^=/,'').trim()){$('ans').innerHTML='';$('sub').innerHTML='';return}
+  const N=Number($('dig').value);
+  try{
+    const r=calc(src,N), v=r.v, dec=toDecimal(v,N);
+    const rep=repeating(v);
+    const isFrac=!v.ap&&v.d!==1n;
+    $('ans').innerHTML=`<span class="eq">${v.ap?'≒':'＝'}</span>${dec.s}${!dec.exact?'…':''}`;
+    let s=`<span class="tag ${v.ap?'ap':'ok'}">${v.ap?'近似（小数 '+N+' 桁で打ち切り）':'正確'}</span>`;
+    if(isFrac)s+=`<span>分数 <code>${v.n}/${v.d}</code></span>`;
+    if(rep)s+=`<span>繰り返し <code>${rep}</code></span>`;
+    $('sub').innerHTML=s;
+    $('na').textContent=r.add.toLocaleString();$('nc').textContent=r.cmp.toLocaleString();
+    if($('balw').open){const [d3,k3]=balPoint(v,N,3n),[d13,k13]=balPoint(v,N,13n);chips($('b3'),d3,k3,3);chips($('b13'),d13,k13,13)}
+    if(commit){last=v;lastStr=v.ap?dec.s:(isFrac?`${v.n}/${v.d}`:dec.s);addHist(f.value,(v.ap?'≒':'＝')+dec.s)}
+  }catch(e){if(commit||/[\d)]\s*$/.test(src))$('err').textContent=e.message}
+}
+// 履歴（この端末のブラウザにだけ残る）
+let H=[];try{H=JSON.parse(localStorage.getItem('morc_calc_hist')||'[]')}catch(e){}
+function drawHist(){$('hist').innerHTML=H.length?H.map((h,i)=>`<button data-i="${i}"><b>${esc(h[0])}</b><span>${esc(h[1].length>40?h[1].slice(0,40)+'…':h[1])}</span></button>`).join(''):'<span>まだありません</span>';
+  $('hist').querySelectorAll('button').forEach(b=>b.onclick=()=>{f.value=H[b.dataset.i][0];show(false);f.focus()})}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function addHist(e,a){if(H[0]&&H[0][0]===e)return;H.unshift([e,a]);H=H.slice(0,30);try{localStorage.setItem('morc_calc_hist',JSON.stringify(H))}catch(x){}drawHist()}
+function ins(t){const s=f.selectionStart??f.value.length,e=f.selectionEnd??s;f.value=f.value.slice(0,s)+t+f.value.slice(e);const p=s+t.length;f.setSelectionRange(p,p);f.focus();show(false)}
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;
+  if(k==='C'){f.value='=';f.focus();show(false)}
+  else if(k==='BS'){const s=f.selectionStart??f.value.length,e=f.selectionEnd??s;if(s===e&&s>0){f.value=f.value.slice(0,s-1)+f.value.slice(e);f.setSelectionRange(s-1,s-1)}else{f.value=f.value.slice(0,s)+f.value.slice(e);f.setSelectionRange(s,s)}f.focus();show(false)}
+  else if(k==='='){show(true)}
+  else if(k==='ANS'){ins('答')}
+  else ins(k)});
+let tm;f.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(()=>show(false),120)});
+f.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();show(true)}});
+$('dig').onchange=()=>show(false);$('balw').addEventListener('toggle',()=>show(false));
+drawHist();show(true);
+}
+</script>
+</body>
+</html>

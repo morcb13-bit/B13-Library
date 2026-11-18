@@ -1,0 +1,265 @@
+<!doctype html>
+<!-- morc_b13 lab / B13-Library (https://github.com/morcb13-bit/B13-Library) — MIT License: free to use, modify and share -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>morc mini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Integer calculator: answer on top, the same number in balanced ternary and base 13 below, then the counts of additions and comparisons. Integer addition only */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,4.5vw,2.2rem);margin:0;letter-spacing:.02em}
+.lead{margin:2px 0 0;color:var(--muted);line-height:1.7}
+.calc{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:14px;display:grid;gap:12px}
+.screen{background:var(--cell);border:1.5px solid var(--rule);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.expr{font-family:var(--mono);color:var(--muted);font-size:.95rem;overflow-wrap:anywhere}
+.ans{font-family:var(--mono);font-weight:600;font-size:clamp(1.25rem,4vw,1.8rem);overflow-wrap:anywhere;line-height:1.35}
+.row{display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:8px;align-items:start}
+.row>span{font-size:.8rem;color:var(--muted);padding-top:5px}
+.chips{display:flex;flex-wrap:wrap;gap:3px}
+.chips i{font-style:normal;font-family:var(--mono);font-size:.78rem;min-width:22px;height:22px;display:inline-grid;place-items:center;border-radius:5px;border:1px solid var(--rule);color:var(--muted);padding:0 3px}
+.chips i.p{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+.chips i.n{background:var(--neg);border-color:var(--neg);color:var(--bg)}
+.chips em{font-style:normal;font-size:.78rem;color:var(--muted);align-self:center;margin-left:4px}
+.count{display:flex;flex-wrap:wrap;gap:4px 20px;font-size:.9rem;color:var(--muted);border-top:1px dashed var(--rule);padding-top:8px}
+.count b{font-family:var(--mono);color:var(--ink);font-size:1.15rem}
+.ins{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+label{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
+input[type=text]{font:inherit;font-family:var(--mono);font-size:16px;padding:9px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--cell);color:var(--ink);width:100%}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px}
+button{font:inherit;font-weight:700;color:var(--ink);background:var(--cell);border:1px solid var(--rule);border-radius:9px;padding:10px 6px;cursor:pointer;min-height:44px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.k{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.c{border-color:var(--pos);color:var(--pos)}
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.foot label{display:flex;align-items:center;gap:8px}
+.foot input[type=range]{width:160px}
+.err{color:var(--neg);font-weight:700;min-height:1.2em;font-size:.9rem}
+.text{line-height:1.8;font-size:.95rem}
+.text h2{font-family:var(--display);font-size:1.15rem;margin:10px 0 2px}
+.text p{margin:6px 0}
+@media (prefers-reduced-motion: reduce){.ans{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>morc mini</h1>
+<p class="lead">Multiplication, division, √ and π, all from integer addition. Below each answer: the same number in balanced ternary and balanced base 13, and how many additions it took.</p>
+</header>
+<section class="calc" aria-label="Calculator">
+<div class="screen">
+<div class="expr" id="expr">—</div>
+<div class="ans" id="ans" aria-live="polite">—</div>
+<div class="row"><span>Balanced 3</span><div class="chips" id="b3"></div></div>
+<div class="row"><span>Balanced 13</span><div class="chips" id="b13"></div></div>
+<div class="count"><div>Additions to reach the answer: <b id="na">0</b></div><div>Comparisons: <b id="nc">0</b></div><div>(converting to balanced digits is not counted)</div></div>
+</div>
+<div class="ins">
+<label>a<input type="text" id="a" inputmode="numeric" value="123456789"></label>
+<label>b<input type="text" id="b" inputmode="numeric" value="987654321"></label>
+</div>
+<div class="keys">
+<button class="k" data-op="add">a ＋ b</button>
+<button class="k" data-op="sub">a − b</button>
+<button class="k" data-op="mul">a × b</button>
+<button class="k" data-op="div">a ÷ b</button>
+<button class="k" data-op="pow">a to the b</button>
+<button class="k" data-op="sqrt">√a</button>
+<button class="k" data-op="gcd">GCD</button>
+</div>
+<div class="keys">
+<button class="c" data-op="pi">π</button>
+<button class="c" data-op="e">e</button>
+<button class="c" data-op="phi">φ</button>
+<button class="c" data-op="s2">√2</button>
+</div>
+<div class="foot">
+<label>Decimal digits <input type="range" id="dig" min="10" max="200" step="10" value="50"><b id="digv">50</b></label>
+<button id="demo">Stop the demo</button>
+</div>
+<div class="err" id="err"></div>
+</section>
+<section class="text">
+<h2>What it does</h2>
+<p>The only operations this calculator applies to numbers are adding and comparing which is larger. Subtraction flips the sign and adds. Multiplication adds a to itself to build the ladder a, 2a, 4a, 8a, … and adds up the rungs that make b. Division subtracts rungs of the divisor's ladder from the top while they fit. Square root tries adding 1, 2, 4, … to the candidate and keeps each one whose square stays within the number.</p>
+<p>π is 16·atan(1/5) − 4·atan(1/239), e is 1/0! + 1/1! + 1/2! + …, and φ is (1 + √5) ÷ 2, each computed as integers scaled by a power of 10 with the same addition tools. Decimals are truncated toward zero at the chosen digit, negative numbers included.</p>
+<p>Balanced ternary uses the three digits −1, 0, +1 and balanced base 13 uses the thirteen digits −6 … +6 to write the same number shown above. Answers with decimals get a radix point in the balanced digits too. Blue digits are positive, red are negative.</p>
+<p>The counts are the additions and comparisons needed for the answer shown (for division and √, down to the decimal digits). Converting to balanced digits is not counted.</p>
+<p>Sample calculations play when the page opens. Press any key or "Stop the demo" to stop.</p>
+<p>Source and license: <a href="https://github.com/morcb13-bit/B13-Library">B13-Library on GitHub</a> (MIT License).</p>
+</section>
+</div>
+<script>
+// morc mini engine: integers and addition (plus comparison) only
+// Subtraction flips the sign and adds. Multiplication and division use a doubling ladder built by self-addition.
+const C = { add: 0, cmp: 0 };
+function reset() { C.add = 0; C.cmp = 0; }
+function add(a, b) { C.add++; return a + b; }
+function neg(a) { return -a; }                       // just flip the sign
+function sub(a, b) { return add(a, neg(b)); }
+function ge(a, b) { C.cmp++; return a >= b; }
+function absv(a) { C.cmp++; return a < 0n ? neg(a) : a; }
+function isNeg(a) { C.cmp++; return a < 0n; }
+
+// doubling ladder x, 2x, 4x, … by addition only (up to limit)
+function ladder(x, limit) {
+  const r = [x];
+  while (true) { const n = add(r[r.length - 1], r[r.length - 1]); if (!ge(limit, n)) break; r.push(n); }
+  return r;
+}
+// multiply: split b into rungs 1,2,4,… and add the matching rungs of a
+function mul(a, b) {
+  const sa = isNeg(a), sb = isNeg(b); a = absv(a); b = absv(b);
+  if (a === 0n || b === 0n) return 0n;
+  const ones = ladder(1n, b), rungs = [a];
+  for (let i = 1; i < ones.length; i++) rungs.push(add(rungs[i - 1], rungs[i - 1]));
+  let rest = b, acc = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = add(acc, rungs[i]); }
+  return sa !== sb ? neg(acc) : acc;
+}
+// divide: subtract divisor rungs from the top; quotient and remainder (remainder ≥ 0)
+function divmod(a, b) {
+  if (b === 0n) throw new Error('Division by zero');
+  const sa = isNeg(a), sb = isNeg(b); let A = absv(a); const B = absv(b);
+  let q = 0n;
+  if (ge(A, B)) {
+    const rungs = ladder(B, A), ones = [1n];
+    for (let i = 1; i < rungs.length; i++) ones.push(add(ones[i - 1], ones[i - 1]));
+    for (let i = rungs.length - 1; i >= 0; i--) if (ge(A, rungs[i])) { A = sub(A, rungs[i]); q = add(q, ones[i]); }
+  }
+  // make the remainder non-negative
+  if (sa) { if (A !== 0n) { q = add(q, 1n); A = sub(B, A); } q = neg(q); }
+  if (sb) q = neg(q);
+  return [q, A];
+}
+const div = (a, b) => divmod(a, b)[0];
+// powers of 10: 10x = 8x + 2x
+function times10(x) { const x2 = add(x, x), x4 = add(x2, x2), x8 = add(x4, x4); return add(x8, x2); }
+function pow10(n) { let p = 1n; for (let i = 0; i < n; i++) p = times10(p); return p; }
+// power: split the exponent into doubling rungs
+function power(a, e) {
+  if (isNeg(e)) throw new Error('Exponent must be 0 or more');
+  if (e === 0n) return 1n;
+  const ones = ladder(1n, e), sq = [a];
+  for (let i = 1; i < ones.length; i++) sq.push(mul(sq[i - 1], sq[i - 1]));
+  let rest = e, acc = 1n;
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = mul(acc, sq[i]); }
+  return acc;
+}
+// integer square root: try r + 2^k and keep it if its square stays within n
+function isqrt(n) {
+  if (isNeg(n)) throw new Error('Square root of a negative number');
+  if (n === 0n) return 0n;
+  const ones = ladder(1n, n);
+  let r = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) { const t = add(r, ones[i]); if (ge(n, mul(t, t))) r = t; }
+  return r;
+}
+function gcd(a, b) { a = absv(a); b = absv(b); while (b !== 0n) { [a, b] = [b, divmod(a, b)[1]]; } return a; }
+// atan(1/x)×S: divide terms by x², divide by 2k+1, add and subtract
+function atanInv(x, S) {
+  const x2 = mul(x, x); let term = div(S, x), sum = term, k = 1n, sign = -1;
+  while (term !== 0n) {
+    term = div(term, x2); const d = add(add(k, k), 1n); const t = div(term, d);
+    sum = sign < 0 ? sub(sum, t) : add(sum, t); sign = -sign; k = add(k, 1n);
+  }
+  return sum;
+}
+const GUARD = 10;
+function constPi(N) { const S = pow10(N + GUARD); let a = atanInv(5n, S); const a16 = ladder(a, mul(a, 16n))[4]; const b = atanInv(239n, S); const b4 = ladder(b, mul(b, 4n))[2]; return div(sub(a16, b4), pow10(GUARD)); }
+function constE(N) { const S = pow10(N + GUARD); let term = S, sum = S, k = 1n; while (term !== 0n) { term = div(term, k); sum = add(sum, term); k = add(k, 1n); } return div(sum, pow10(GUARD)); }
+function constSqrt2(N) { return isqrt(mul(2n, pow10(N + N))); }
+function constPhi(N) { const s = isqrt(mul(5n, pow10(N + N))); return div(add(s, pow10(N)), 2n); }
+
+// balanced base-B digits (B odd): if the remainder exceeds half, subtract B and carry 1
+function balanced(n, B) {
+  if (n === 0n) return [0];
+  const half = div(B, 2n), out = [];
+  while (n !== 0n) {
+    let [q, r] = divmod(n, B);
+    if (!ge(half, r)) { r = sub(r, B); q = add(q, 1n); }
+    out.push(Number(r)); n = q;
+  }
+  return out.reverse();
+}
+{
+const $=id=>document.getElementById(id);
+const parse=s=>{s=s.trim().replace(/[,_\s]/g,'');if(!/^[-+]?\d+$/.test(s))throw new Error('Please enter integers for a and b');return BigInt(s)};
+// everything below that builds strings is display only (decimal text and the radix point)
+const withPoint=(v,N)=>{let s=v.toString();const sg=s[0]==='-'?'-':'';if(sg)s=s.slice(1);s=s.padStart(N+1,'0');return sg+s.slice(0,s.length-N)+'.'+s.slice(s.length-N)};
+const MAXCH=96;
+// write the shown decimal (m / 10^sc) in balanced base B with a radix point, k digits where B^k ≥ 10^sc, rounded (display only)
+function balPoint(m,sc,B){
+  if(sc===0)return [balanced(m,B),0];
+  let k=0,Bk=1n;const T=10n**BigInt(sc);while(Bk<T){Bk*=B;k++}
+  const num=m*Bk,neg=num<0n,an=neg?-num:num;let q=an/T;if((an%T)*2n>=T)q+=1n;
+  let d=balanced(neg?-q:q,B);while(d.length<=k)d.unshift(0);
+  return [d,k];
+}
+function chips(el,d,k,B){
+  const ip=d.length-k,show=d.slice(0,Math.max(MAXCH,ip));
+  el.innerHTML=show.map((x,i)=>{const t=B===3?(x>0?'+':x<0?'−':'0'):(x>0?'+'+x:x<0?'−'+(-x):'0');return (k&&i===ip?'<em style="margin:0 2px;font-weight:700">.</em>':'')+`<i class="${x>0?'p':x<0?'n':''}">${t}</i>`}).join('')+(d.length>show.length?`<em>… ${k} fraction digits</em>`:k?`<em>${ip} integer + ${k} fraction digits</em>`:`<em>${d.length} digits</em>`);
+}
+let anim=0;
+function countUp(a,c){
+  cancelAnimationFrame(anim);
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){$('na').textContent=a.toLocaleString();$('nc').textContent=c.toLocaleString();return}
+  const t0=performance.now(),T=700;
+  const step=t=>{const k=Math.min(1,(t-t0)/T);$('na').textContent=Math.round(a*k).toLocaleString();$('nc').textContent=Math.round(c*k).toLocaleString();if(k<1)anim=requestAnimationFrame(step)};
+  anim=requestAnimationFrame(step);
+  clearTimeout(countUp.t);countUp.t=setTimeout(()=>{cancelAnimationFrame(anim);$('na').textContent=a.toLocaleString();$('nc').textContent=c.toLocaleString()},T+60);
+}
+function run(op,A,B){
+  $('err').textContent='';
+  const N=Number($('dig').value);
+  try{
+    let a,b; if(!['pi','e','phi','s2'].includes(op)){a=A!==undefined?A:parse($('a').value);b=B!==undefined?B:parse($('b').value)}
+    reset();
+    let expr,ans,val,sc=0;
+    if(op==='add'){val=add(a,b);expr=`${a} ＋ ${b}`;ans=val.toString()}
+    else if(op==='sub'){val=sub(a,b);expr=`${a} − ${b}`;ans=val.toString()}
+    else if(op==='mul'){val=mul(a,b);expr=`${a} × ${b}`;ans=val.toString()}
+    else if(op==='div'){const[q,r]=divmod(a,b);const sg=(a<0n)!==(b<0n),A=a<0n?-a:a,Bb=b<0n?-b:b;let dec=div(mul(A,pow10(N)),Bb);if(sg)dec=-dec;val=dec;sc=N;expr=`${a} ÷ ${b}`;ans=`quotient ${q}, remainder ${r}<br><small>≈ ${withPoint(dec,N)}</small>`}
+    else if(op==='pow'){if(b>4000n||b<0n)throw new Error('b must be between 0 and 4000');if(a.toString().length*Number(b)>6000)throw new Error('Answer too long (6000 digits max)');val=power(a,b);expr=`${a} to the power ${b}`;ans=val.toString()}
+    else if(op==='sqrt'){const r=isqrt(a);const d=isqrt(mul(a,pow10(N+N)));val=d;sc=N;expr=`√${a}`;ans=`${r}<br><small>≈ ${withPoint(d,N)}</small>`}
+    else if(op==='gcd'){val=gcd(a,b);expr=`GCD of ${a} and ${b}`;ans=val.toString()}
+    else{const f={pi:[constPi,'π'],e:[constE,'e'],phi:[constPhi,'φ'],s2:[constSqrt2,'√2']}[op];val=f[0](N);sc=N;expr=`${f[1]} (${N} decimals)`;ans=withPoint(val,N)}
+    const na=C.add,nc=C.cmp;   // converting to balanced digits for display is not counted
+    $('expr').textContent=expr;$('ans').innerHTML=ans;
+    {const [d3,k3]=balPoint(val,sc,3n),[d13,k13]=balPoint(val,sc,13n);chips($('b3'),d3,k3,3);chips($('b13'),d13,k13,13);}
+    countUp(na,nc);$('na').dataset.final=na;$('nc').dataset.final=nc;
+  }catch(e){$('err').textContent=e.message}
+}
+// demo: plays when the page opens
+const DEMO=[['pi'],['mul',123456789n,987654321n],['pow',2n,100n],['s2'],['div',1n,7n],['phi'],['gcd',1071n,462n],['e']];
+let di=0,timer=null;
+function demoStep(){const [op,a,b]=DEMO[di%DEMO.length];if(a!==undefined){$('a').value=a;$('b').value=b}run(op,a,b);di++}
+function play(){if(timer)return;demoStep();timer=setInterval(demoStep,3600);$('demo').textContent='Stop the demo'}
+function stop(){clearInterval(timer);timer=null;$('demo').textContent='Play the demo'}
+$('demo').onclick=()=>timer?stop():play();
+document.querySelectorAll('[data-op]').forEach(bt=>bt.onclick=()=>{stop();run(bt.dataset.op)});
+$('dig').oninput=()=>{$('digv').textContent=$('dig').value};
+play();
+}
+</script>
+</body>
+</html>

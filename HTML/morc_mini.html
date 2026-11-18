@@ -1,0 +1,263 @@
+<!doctype html>
+<!-- morc_b13 研究所 / B13-Library（https://github.com/morcb13-bit/B13-Library）── MIT License：自由に使い、改変し、配ってよい -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>答え一発 morc ミニ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 整数電卓：上に答え、その下に同じ数の平衡3進・平衡13進、足し算と比較の回数。計算はすべて整数と足し算だけ */
+:root{
+  --bg:#eef0ec; --panel:#f8f9f6; --ink:#1d2622; --muted:#5d6a63; --rule:#c9d0ca;
+  --pos:#1f5fa8; --neg:#b0452a; --glow:#f0c53a; --cell:#ffffff;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e4ebe6; --muted:#9aa8a0; --rule:#34403a;
+  --pos:#6fa8ec; --neg:#ec8a6c; --glow:#f0c53a; --cell:#232c27; color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:20px 28px}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,4.5vw,2.2rem);margin:0;letter-spacing:.02em}
+.lead{margin:2px 0 0;color:var(--muted);line-height:1.7}
+.calc{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:14px;display:grid;gap:12px}
+.screen{background:var(--cell);border:1.5px solid var(--rule);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.expr{font-family:var(--mono);color:var(--muted);font-size:.95rem;overflow-wrap:anywhere}
+.ans{font-family:var(--mono);font-weight:600;font-size:clamp(1.25rem,4vw,1.8rem);overflow-wrap:anywhere;line-height:1.35}
+.row{display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:8px;align-items:start}
+.row>span{font-size:.8rem;color:var(--muted);padding-top:5px}
+.chips{display:flex;flex-wrap:wrap;gap:3px}
+.chips i{font-style:normal;font-family:var(--mono);font-size:.78rem;min-width:22px;height:22px;display:inline-grid;place-items:center;border-radius:5px;border:1px solid var(--rule);color:var(--muted);padding:0 3px}
+.chips i.p{background:var(--pos);border-color:var(--pos);color:var(--bg)}
+.chips i.n{background:var(--neg);border-color:var(--neg);color:var(--bg)}
+.chips em{font-style:normal;font-size:.78rem;color:var(--muted);align-self:center;margin-left:4px}
+.count{display:flex;flex-wrap:wrap;gap:4px 20px;font-size:.9rem;color:var(--muted);border-top:1px dashed var(--rule);padding-top:8px}
+.count b{font-family:var(--mono);color:var(--ink);font-size:1.15rem}
+.ins{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+label{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
+input[type=text]{font:inherit;font-family:var(--mono);font-size:16px;padding:9px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--cell);color:var(--ink);width:100%}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px}
+button{font:inherit;font-weight:700;color:var(--ink);background:var(--cell);border:1px solid var(--rule);border-radius:9px;padding:10px 6px;cursor:pointer;min-height:44px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+button.k{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.c{border-color:var(--pos);color:var(--pos)}
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.foot label{display:flex;align-items:center;gap:8px}
+.foot input[type=range]{width:160px}
+.err{color:var(--neg);font-weight:700;min-height:1.2em;font-size:.9rem}
+.text{line-height:1.8;font-size:.95rem}
+.text h2{font-family:var(--display);font-size:1.15rem;margin:10px 0 2px}
+.text p{margin:6px 0}
+@media (prefers-reduced-motion: reduce){.ans{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>答え一発 morc ミニ</h1>
+<p class="lead">掛け算も割り算も √ も π も、整数の足し算だけで出す電卓。答えの下に、同じ数の平衡3進・平衡13進と、足し算を何回したかが出ます。</p>
+</header>
+<section class="calc" aria-label="電卓">
+<div class="screen">
+<div class="expr" id="expr">—</div>
+<div class="ans" id="ans" aria-live="polite">—</div>
+<div class="row"><span>平衡3進</span><div class="chips" id="b3"></div></div>
+<div class="row"><span>平衡13進</span><div class="chips" id="b13"></div></div>
+<div class="count"><div>答えを出すまでの足し算 <b id="na">0</b> 回</div><div>大小の比較 <b id="nc">0</b> 回</div><div>（平衡進数への書き換えは数えない）</div></div>
+</div>
+<div class="ins">
+<label>a<input type="text" id="a" inputmode="numeric" value="123456789"></label>
+<label>b<input type="text" id="b" inputmode="numeric" value="987654321"></label>
+</div>
+<div class="keys">
+<button class="k" data-op="add">a ＋ b</button>
+<button class="k" data-op="sub">a − b</button>
+<button class="k" data-op="mul">a × b</button>
+<button class="k" data-op="div">a ÷ b</button>
+<button class="k" data-op="pow">a の b 乗</button>
+<button class="k" data-op="sqrt">√a</button>
+<button class="k" data-op="gcd">最大公約数</button>
+</div>
+<div class="keys">
+<button class="c" data-op="pi">π</button>
+<button class="c" data-op="e">e</button>
+<button class="c" data-op="phi">φ</button>
+<button class="c" data-op="s2">√2</button>
+</div>
+<div class="foot">
+<label>小数の桁数 <input type="range" id="dig" min="10" max="200" step="10" value="50"><b id="digv">50</b></label>
+<button id="demo">見本を止める</button>
+</div>
+<div class="err" id="err"></div>
+</section>
+<section class="text">
+<h2>何をしているか</h2>
+<p>この電卓の中で数に対してしている操作は、足すことと、どちらが大きいかを比べることだけです。引き算は符号を返して足します。掛け算は、a を自分自身に足して a・2a・4a・8a… のはしごを作り、b に合う段を拾って足します。割り算は、割る数のはしごを上の段から引けるだけ引きます。√ は、答えの候補に 1・2・4… を足してみて、二乗が元の数を越えなければ採ります。</p>
+<p>π は 16·atan(1/5) − 4·atan(1/239)、e は 1/0! + 1/1! + 1/2! + …、φ は (1 + √5) ÷ 2 を、10 の累乗を掛けた整数のまま、同じ足し算の道具で計算しています。小数は指定の桁で切り捨てです。</p>
+<p>平衡3進は −1・0・+1 の三つの数字、平衡13進は −6〜+6 の十三の数字で、上に出した答えと同じ数を書いたものです。小数のある答えは、平衡進数にも小数点を付けて書きます。青が正、赤が負の桁です。</p><p>下の回数は、上に出した答え（割り算と √ は小数の桁まで）を出すのに要った足し算と比較の数で、平衡進数への書き換えの分は入れていません。小数は、負の数も 0 の向きに切り捨てます。</p>
+<p>開くと見本の計算が順に流れます。キーを押すか「見本を止める」で止まります。</p>
+</section>
+</div>
+<script>
+// 答え一発 morc ミニ ── 計算の芯：整数と足し算（と大小の比較）だけ
+// 引き算は「符号を返して足す」。掛け算・割り算は、自分自身を足して作る倍々のはしごで組む。
+const C = { add: 0, cmp: 0 };
+function reset() { C.add = 0; C.cmp = 0; }
+function add(a, b) { C.add++; return a + b; }
+function neg(a) { return -a; }                       // 符号を返すだけ
+function sub(a, b) { return add(a, neg(b)); }
+function ge(a, b) { C.cmp++; return a >= b; }
+function absv(a) { C.cmp++; return a < 0n ? neg(a) : a; }
+function isNeg(a) { C.cmp++; return a < 0n; }
+
+// 倍々のはしご：x, 2x, 4x, … を足し算だけで作る（limit を越えない所まで）
+function ladder(x, limit) {
+  const r = [x];
+  while (true) { const n = add(r[r.length - 1], r[r.length - 1]); if (!ge(limit, n)) break; r.push(n); }
+  return r;
+}
+// 掛け算：b を倍々の段 1,2,4,… に分け、a のはしごの同じ段を拾って足す
+function mul(a, b) {
+  const sa = isNeg(a), sb = isNeg(b); a = absv(a); b = absv(b);
+  if (a === 0n || b === 0n) return 0n;
+  const ones = ladder(1n, b), rungs = [a];
+  for (let i = 1; i < ones.length; i++) rungs.push(add(rungs[i - 1], rungs[i - 1]));
+  let rest = b, acc = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = add(acc, rungs[i]); }
+  return sa !== sb ? neg(acc) : acc;
+}
+// 割り算：割る数のはしごを上から引けるだけ引く。商と余り（余りは 0 以上）
+function divmod(a, b) {
+  if (b === 0n) throw new Error('0 では割れません');
+  const sa = isNeg(a), sb = isNeg(b); let A = absv(a); const B = absv(b);
+  let q = 0n;
+  if (ge(A, B)) {
+    const rungs = ladder(B, A), ones = [1n];
+    for (let i = 1; i < rungs.length; i++) ones.push(add(ones[i - 1], ones[i - 1]));
+    for (let i = rungs.length - 1; i >= 0; i--) if (ge(A, rungs[i])) { A = sub(A, rungs[i]); q = add(q, ones[i]); }
+  }
+  // 余りを 0 以上にそろえる
+  if (sa) { if (A !== 0n) { q = add(q, 1n); A = sub(B, A); } q = neg(q); }
+  if (sb) q = neg(q);
+  return [q, A];
+}
+const div = (a, b) => divmod(a, b)[0];
+// 10 の累乗：10x = 8x + 2x
+function times10(x) { const x2 = add(x, x), x4 = add(x2, x2), x8 = add(x4, x4); return add(x8, x2); }
+function pow10(n) { let p = 1n; for (let i = 0; i < n; i++) p = times10(p); return p; }
+// べき乗：指数を倍々の段に分ける
+function power(a, e) {
+  if (isNeg(e)) throw new Error('指数は 0 以上');
+  if (e === 0n) return 1n;
+  const ones = ladder(1n, e), sq = [a];
+  for (let i = 1; i < ones.length; i++) sq.push(mul(sq[i - 1], sq[i - 1]));
+  let rest = e, acc = 1n;
+  for (let i = ones.length - 1; i >= 0; i--) if (ge(rest, ones[i])) { rest = sub(rest, ones[i]); acc = mul(acc, sq[i]); }
+  return acc;
+}
+// 整数の平方根：r に 2^k を足してみて、二乗が n を越えなければ採る
+function isqrt(n) {
+  if (isNeg(n)) throw new Error('負の数の √ はとれません');
+  if (n === 0n) return 0n;
+  const ones = ladder(1n, n);
+  let r = 0n;
+  for (let i = ones.length - 1; i >= 0; i--) { const t = add(r, ones[i]); if (ge(n, mul(t, t))) r = t; }
+  return r;
+}
+function gcd(a, b) { a = absv(a); b = absv(b); while (b !== 0n) { [a, b] = [b, divmod(a, b)[1]]; } return a; }
+// atan(1/x)×S：項を x² で割りながら、2k+1 で割って足し引きする
+function atanInv(x, S) {
+  const x2 = mul(x, x); let term = div(S, x), sum = term, k = 1n, sign = -1;
+  while (term !== 0n) {
+    term = div(term, x2); const d = add(add(k, k), 1n); const t = div(term, d);
+    sum = sign < 0 ? sub(sum, t) : add(sum, t); sign = -sign; k = add(k, 1n);
+  }
+  return sum;
+}
+const GUARD = 10;
+function constPi(N) { const S = pow10(N + GUARD); let a = atanInv(5n, S); const a16 = ladder(a, mul(a, 16n))[4]; const b = atanInv(239n, S); const b4 = ladder(b, mul(b, 4n))[2]; return div(sub(a16, b4), pow10(GUARD)); }
+function constE(N) { const S = pow10(N + GUARD); let term = S, sum = S, k = 1n; while (term !== 0n) { term = div(term, k); sum = add(sum, term); k = add(k, 1n); } return div(sum, pow10(GUARD)); }
+function constSqrt2(N) { return isqrt(mul(2n, pow10(N + N))); }
+function constPhi(N) { const s = isqrt(mul(5n, pow10(N + N))); return div(add(s, pow10(N)), 2n); }
+
+// 平衡 B 進の桁（B は奇数）：余りが半分を越えたら B を引いて上の桁へ 1 を送る
+function balanced(n, B) {
+  if (n === 0n) return [0];
+  const half = div(B, 2n), out = [];
+  while (n !== 0n) {
+    let [q, r] = divmod(n, B);
+    if (!ge(half, r)) { r = sub(r, B); q = add(q, 1n); }
+    out.push(Number(r)); n = q;
+  }
+  return out.reverse();
+}
+{
+const $=id=>document.getElementById(id);
+const parse=s=>{s=s.trim().replace(/[,_\s]/g,'');if(!/^[-+]?\d+$/.test(s))throw new Error('a と b には整数を入れてください');return BigInt(s)};
+// ここから下の文字列化は観察者側の表示（10進の文字列と小数点の位置）
+const withPoint=(v,N)=>{let s=v.toString();const sg=s[0]==='-'?'-':'';if(sg)s=s.slice(1);s=s.padStart(N+1,'0');return sg+s.slice(0,s.length-N)+'.'+s.slice(s.length-N)};
+const MAXCH=96;
+// 表示した小数（m / 10^sc）を、小数点つきの平衡B進で書く。B^k ≥ 10^sc となる k 桁まで出して丸める（ここは観察者側の表示）
+function balPoint(m,sc,B){
+  if(sc===0)return [balanced(m,B),0];
+  let k=0,Bk=1n;const T=10n**BigInt(sc);while(Bk<T){Bk*=B;k++}
+  const num=m*Bk,neg=num<0n,an=neg?-num:num;let q=an/T;if((an%T)*2n>=T)q+=1n;
+  let d=balanced(neg?-q:q,B);while(d.length<=k)d.unshift(0);
+  return [d,k];
+}
+function chips(el,d,k,B){
+  const ip=d.length-k,show=d.slice(0,Math.max(MAXCH,ip));
+  el.innerHTML=show.map((x,i)=>{const t=B===3?(x>0?'+':x<0?'−':'0'):(x>0?'+'+x:x<0?'−'+(-x):'0');return (k&&i===ip?'<em style="margin:0 2px;font-weight:700">.</em>':'')+`<i class="${x>0?'p':x<0?'n':''}">${t}</i>`}).join('')+(d.length>show.length?`<em>… 小数 ${k} 桁まで</em>`:k?`<em>整数 ${ip} 桁・小数 ${k} 桁</em>`:`<em>${d.length} 桁</em>`);
+}
+let anim=0;
+function countUp(a,c){
+  cancelAnimationFrame(anim);
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){$('na').textContent=a.toLocaleString();$('nc').textContent=c.toLocaleString();return}
+  const t0=performance.now(),T=700;
+  const step=t=>{const k=Math.min(1,(t-t0)/T);$('na').textContent=Math.round(a*k).toLocaleString();$('nc').textContent=Math.round(c*k).toLocaleString();if(k<1)anim=requestAnimationFrame(step)};
+  anim=requestAnimationFrame(step);
+  clearTimeout(countUp.t);countUp.t=setTimeout(()=>{cancelAnimationFrame(anim);$('na').textContent=a.toLocaleString();$('nc').textContent=c.toLocaleString()},T+60);
+}
+function run(op,A,B){
+  $('err').textContent='';
+  const N=Number($('dig').value);
+  try{
+    let a,b; if(!['pi','e','phi','s2'].includes(op)){a=A!==undefined?A:parse($('a').value);b=B!==undefined?B:parse($('b').value)}
+    reset();
+    let expr,ans,val,sc=0;
+    if(op==='add'){val=add(a,b);expr=`${a} ＋ ${b}`;ans=val.toString()}
+    else if(op==='sub'){val=sub(a,b);expr=`${a} − ${b}`;ans=val.toString()}
+    else if(op==='mul'){val=mul(a,b);expr=`${a} × ${b}`;ans=val.toString()}
+    else if(op==='div'){const[q,r]=divmod(a,b);const sg=(a<0n)!==(b<0n),A=a<0n?-a:a,Bb=b<0n?-b:b;let dec=div(mul(A,pow10(N)),Bb);if(sg)dec=-dec;val=dec;sc=N;expr=`${a} ÷ ${b}`;ans=`商 ${q}　余り ${r}<br><small>≒ ${withPoint(dec,N)}</small>`}
+    else if(op==='pow'){if(b>4000n||b<0n)throw new Error('b は 0〜4000 にしてください');if(a.toString().length*Number(b)>6000)throw new Error('答えが長すぎます（6000 桁まで）');val=power(a,b);expr=`${a} の ${b} 乗`;ans=val.toString()}
+    else if(op==='sqrt'){const r=isqrt(a);const d=isqrt(mul(a,pow10(N+N)));val=d;sc=N;expr=`√${a}`;ans=`${r}<br><small>≒ ${withPoint(d,N)}</small>`}
+    else if(op==='gcd'){val=gcd(a,b);expr=`${a} と ${b} の最大公約数`;ans=val.toString()}
+    else{const f={pi:[constPi,'π'],e:[constE,'e'],phi:[constPhi,'φ'],s2:[constSqrt2,'√2']}[op];val=f[0](N);sc=N;expr=`${f[1]}（小数 ${N} 桁）`;ans=withPoint(val,N)}
+    const na=C.add,nc=C.cmp;   // 表示のための平衡進数の変換は回数に入れない
+    $('expr').textContent=expr;$('ans').innerHTML=ans;
+    {const [d3,k3]=balPoint(val,sc,3n),[d13,k13]=balPoint(val,sc,13n);chips($('b3'),d3,k3,3);chips($('b13'),d13,k13,13);}
+    countUp(na,nc);$('na').dataset.final=na;$('nc').dataset.final=nc;
+  }catch(e){$('err').textContent=e.message}
+}
+// 見本：開くと順に流れる
+const DEMO=[['pi'],['mul',123456789n,987654321n],['pow',2n,100n],['s2'],['div',1n,7n],['phi'],['gcd',1071n,462n],['e']];
+let di=0,timer=null;
+function demoStep(){const [op,a,b]=DEMO[di%DEMO.length];if(a!==undefined){$('a').value=a;$('b').value=b}run(op,a,b);di++}
+function play(){if(timer)return;demoStep();timer=setInterval(demoStep,3600);$('demo').textContent='見本を止める'}
+function stop(){clearInterval(timer);timer=null;$('demo').textContent='見本を流す'}
+$('demo').onclick=()=>timer?stop():play();
+document.querySelectorAll('[data-op]').forEach(bt=>bt.onclick=()=>{stop();run(bt.dataset.op)});
+$('dig').oninput=()=>{$('digv').textContent=$('dig').value};
+play();
+}
+</script>
+</body>
+</html>
